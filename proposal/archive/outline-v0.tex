@@ -1,0 +1,278 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\setlist{nosep, leftmargin=*}
+\newcommand{\todo}[1]{\textcolor{red}{[#1]}}
+
+\title{ECSE 552 Project Proposal\\[0.5em]
+\large Teaching a Robot Policy a New Object from Action-Free Videos:\\
+Object-Invariant Inverse Dynamics for Pseudo-Labeling}
+\author{Brik \and Zheng \and Myriam \and Gonzalo}
+\date{Draft v0 --- initial outline by Gonzalo, October 5, 2026}
+
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------------------
+\section{Title and Summary}
+
+\begin{itemize}
+  \item \textbf{Working title:} Teaching a Robot Policy a New Object from
+    Action-Free Videos: Object-Invariant Inverse Dynamics for Pseudo-Labeling.
+  \item \textbf{One-line summary:} use action-labeled demos of one object plus
+    action-free videos of a second object to train a policy for the second
+    object, entirely in simulation.
+  \item \textbf{Central question:} where should domain invariance be applied ---
+    in the model that labels the videos, in the policy, or both?
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section{Background}
+
+\subsection{Application (A1)}
+\begin{itemize}
+  \item Learning robot manipulation skills (picking up and handing over
+    objects) from demonstrations.
+  \item Imitation learning / behavior cloning: a neural network maps camera
+    images and joint positions to motor commands.
+  \item Current state of the art for this setting: ACT (Action Chunking with
+    Transformers)~\cite{zhao2023act}.
+\end{itemize}
+
+\subsection{Problem (A2)}
+\begin{itemize}
+  \item Behavior cloning needs demonstrations where every frame is paired with
+    the motor command used.
+  \item These labeled demos are slow and expensive to collect (a human must
+    teleoperate the robot).
+  \item Videos of a robot doing a task are much cheaper, but contain no motor
+    commands.
+  \item A policy trained on one object fails on a new object that needs a
+    different grasp.
+  \item \textbf{Question:} can action-free videos of a new object, plus labeled
+    demos of a known object, train a policy for the new object?
+\end{itemize}
+
+\subsection{Why a Solution Is Needed (A2)}
+\begin{itemize}
+  \item Collecting labeled demos for every new object does not scale.
+  \item Prior domain adaptation work~\cite{cheng2025gda} assumes the task is
+    the same across domains and only appearance changes (e.g.\ the color of the
+    object).
+  \item Here the correct actions change with the object, so standard
+    adversarial alignment may remove information the policy needs.
+  \item Pseudo-labeling videos with an inverse dynamics model works when the
+    labeler generalizes; whether it survives an object change is untested.
+\end{itemize}
+
+\subsection{Constraints (A3)}
+\begin{itemize}
+  \item \textbf{No target action labels:} only image frames of the new object
+    may be used for training.
+  \item \textbf{Closed-loop task success:} the goal is a high success rate when
+    the policy controls the simulated robot.
+  \item \textbf{Real-time inference:} the policy must output actions within the
+    50\,Hz control budget ($<20$\,ms per step).
+  \item \textbf{Data efficiency:} at most $\sim$50 labeled source
+    demonstrations.
+  \item \textbf{Selective invariance:} the labeling model should ignore object
+    identity; the policy must stay sensitive to it.
+  \item \textbf{Robustness to compounding error:} small action errors must not
+    drift the robot off the training distribution.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section{Aims and Goals}
+
+\subsection{Aims}
+\begin{enumerate}[label=\textbf{Aim \arabic*:}, leftmargin=4.2em]
+  \item Build an inverse dynamics model (IDM) that infers motor commands from
+    consecutive frames and stays accurate when the object changes.
+  \item Use it to pseudo-label action-free videos of a new object, then train
+    an ACT policy on labeled + pseudo-labeled data.
+  \item Test where invariance belongs: object-invariant IDM vs.\
+    object-invariant policy vs.\ both.
+\end{enumerate}
+
+\subsection{Scope (A4)}
+\begin{itemize}
+  \item \textbf{In scope:} one source task (ALOHA Transfer Cube), one target
+    object (elongated bar at random rotation), simulation only.
+  \item \textbf{In scope:} evaluation of the full pipeline in closed-loop
+    simulated rollouts.
+  \item \textbf{Out of scope:} real robots, human videos, other robot arms,
+    multiple tasks, language instructions.
+\end{itemize}
+
+\subsection{Proposed Solution (A5)}
+\begin{itemize}
+  \item \textbf{Key insight:} in ALOHA an action is the next target joint
+    position, so the action is visible in the next frame.
+  \item An IDM reading frames $t$ and $t+1$ is mostly estimating arm pose,
+    which does not depend on the object.
+  \item Therefore, make the IDM object-invariant with an adversarial domain
+    classifier and a gradient reversal layer.
+  \item Do \emph{not} make the policy invariant, since it must grasp each
+    object differently.
+  \item \textbf{Pipeline:} train IDM on cube data $\rightarrow$ label bar
+    videos $\rightarrow$ train ACT on both.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section{Methodology}
+
+\subsection{Data Generation (A6)}
+\begin{itemize}
+  \item \textbf{Simulator:} ALOHA bimanual environment in
+    MuJoCo~\cite{todorov2012mujoco}, via LeRobot~\cite{cadene2024lerobot}
+    \texttt{gym-aloha} and the ACT repository.
+  \item \textbf{Source data:} $\sim$50 scripted Transfer Cube demos with images
+    and actions.
+  \item \textbf{Target data:} 10--100 scripted demos with a new elongated bar;
+    the scripted policy is extended to rotate the gripper.
+  \item Target actions are hidden from all models; they are kept only for
+    evaluation and for the oracle.
+  \item \textbf{Held-out test set:} new random object positions, never used for
+    training.
+\end{itemize}
+
+\subsection{Models and Implementation (A5, A6)}
+\begin{itemize}
+  \item \textbf{Policy:} ACT --- ResNet-18 image encoder, transformer
+    encoder--decoder, CVAE objective, action chunks.
+  \item \textbf{IDM:} ResNet-18 encoder on frames $(t, t+1)$ $\rightarrow$ MLP
+    $\rightarrow$ 14-dim action; trained with L1 loss on cube data.
+  \item \textbf{Object-invariant IDM:} add a domain classifier on IDM features
+    (cube vs.\ bar frames) with a gradient reversal layer.
+  \item \textbf{Training loss (IDM):}
+    \begin{equation*}
+      \mathcal{L}_{\text{IDM}} = \mathcal{L}_{1}^{\text{action}}
+      + \lambda \, \mathcal{L}_{\text{adv}}^{\text{domain}},
+    \end{equation*}
+    with $\lambda$ tuned on a validation split.
+  \item \textbf{Final policy:} ACT trained on cube demos + pseudo-labeled bar
+    demos.
+  \item \textbf{Framework:} PyTorch + LeRobot; hyperparameters tuned on a
+    validation set of held-out episodes.
+\end{itemize}
+
+\subsection{Evaluation (A7)}
+\begin{itemize}
+  \item \textbf{Primary metric:} closed-loop success rate on the bar,
+    50 rollouts $\times$ 3 seeds per method.
+  \item Subtask success: grasp, lift, handover.
+  \item Pseudo-label quality: IDM action error vs.\ hidden true actions.
+  \item Inference latency per step (checks the real-time constraint).
+  \item Scaling study: success vs.\ number of target videos
+    (10, 25, 50, 100).
+  \item Ablation: invariance in IDM only / policy only / both.
+  \item t-SNE plots of cube vs.\ bar features in the IDM and in the policy.
+\end{itemize}
+
+\subsection{Alternative Solutions, All Run on Our Data (A8)}
+\begin{itemize}
+  \item \textbf{Source-only ACT:} trained on cube data only (lower bound).
+  \item \textbf{ACT + DANN:} adversarial invariance on the policy encoder,
+    using unlabeled bar frames.
+  \item \textbf{IDM pseudo-labeling without adaptation:} VPT / BCO-style.
+  \item \textbf{Diffusion Policy:} alternative state-of-the-art policy
+    backbone, trained with the best pipeline.
+  \item \textbf{Oracle ACT:} trained on true bar actions (upper bound).
+\end{itemize}
+
+\subsection{Why Ours Could Be Superior (A8)}
+\begin{itemize}
+  \item DANN on the policy forces cube and bar features together, discarding
+    the grasp information the bar needs.
+  \item An unadapted IDM may mislabel frames when it sees an unfamiliar object.
+  \item Our method applies invariance only where the input--output mapping is
+    shared across objects.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section{Feasibility and Resources}
+\begin{itemize}
+  \item \textbf{No robot needed:} all data generation and evaluation run in
+    the MuJoCo simulator, which is open-source.
+  \item \textbf{Dataset:} self-generated with scripted policies; ground-truth
+    actions are available for every frame, so pseudo-labels can be scored
+    exactly.
+  \item \textbf{Code:} open-source ACT repository (scripted policies, episode
+    recording) and LeRobot (ACT, Diffusion Policy, \texttt{gym-aloha}).
+  \item \textbf{Compute:} ACT ($\sim$80M parameters) trains in $\sim$5\,h on
+    one RTX 2080 Ti in the original paper~\cite{zhao2023act}.
+  \item Estimated $\sim$15--20 training runs $\rightarrow$ reduce cost with
+    1--2 cameras instead of 4, lower image resolution, and fewer training
+    steps.
+  \item \textbf{GPU source:} \todo{TO CONFIRM --- university cluster / Colab
+    Pro / personal GPU}.
+  \item \textbf{Early check:} confirm the scripted cube policy runs and the new
+    bar object loads before finalizing the plan.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section{Risk Analysis}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.38\linewidth}X@{}}
+\toprule
+\textbf{Risk} & \textbf{Mitigation / fallback} \\
+\midrule
+Adding the bar or extending the scripted policy is harder than expected
+  & Use a visual-only object change (color/texture), or the existing
+    Insertion task as target. \\
+Pseudo-labels too noisy for the policy to learn from
+  & Smooth labels over action chunks; filter low-confidence labels; few-shot
+    variant with 5 truly labeled bar demos. \\
+Even the oracle policy fails on the bar
+  & Simplify the object (shorter bar, smaller rotation range); report
+    per-subtask success. \\
+Adversarial training unstable
+  & Tune $\lambda$, warm-up schedule for the domain loss; try MMD or OT
+    alignment as alternatives. \\
+Not enough GPU time
+  & Smaller models, fewer seeds, offline action error as secondary
+    evidence. \\
+Results only work in simulation
+  & State as a limitation; sim-to-real transfer listed as future work. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% ---------------------------------------------------------------------------
+\section{Role of Group Members}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+\textbf{Member} & \textbf{Main responsibilities} \\
+\midrule
+Brik    & \todo{TBD} \\
+Zheng   & \todo{TBD} \\
+Myriam  & \todo{TBD} \\
+Gonzalo & \todo{TBD} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\noindent All members: literature review, proposal, presentation, and report
+sections for their component.
+
+% ---------------------------------------------------------------------------
+\bibliographystyle{unsrt}
+\bibliography{../../references}
+
+\end{document}

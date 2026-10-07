@@ -1,0 +1,13 @@
+# LaTeX build artifacts (main.pdf is tracked on purpose)
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+*.bbl
+*.blg
+
+# Course outline copy: instructor material, not for redistribution (repo is public)
+docs/project-info.md
