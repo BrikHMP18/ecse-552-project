@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ecse-552-project"
+version = "0.1.0"
+description = "Action-free object transfer through inverse dynamics adaptation."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["ocbench[mjwarp,train]"]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.uv.sources]
+ocbench = { path = "third_party/ocbench", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/action_free"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = ["third_party", "docs/tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

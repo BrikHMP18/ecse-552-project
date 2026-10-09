@@ -1,11 +1,11 @@
-"""Build tools/reference.docx, the Word template used by `make docx`.
+"""Build docs/tools/reference.docx, the Word template used by `make docx`.
 
 Starts from pandoc's default template and makes the Word copy look like the
 NeurIPS PDF: Times New Roman, 10 pt body, black text except red team notes,
 justified
 paragraphs, US Letter with a 5.5 in text block.
 
-Usage: python3 tools/make_reference_docx.py
+Usage: python3 docs/tools/make_reference_docx.py
 """
 
 import re

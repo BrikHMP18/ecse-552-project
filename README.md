@@ -30,13 +30,13 @@ Inspection baseline: upstream commit `e2cd2f72110b66bd65afab1b855d81ebc73aeacc`.
 OCBench has been reviewed at source level; no runtime pilot has been run here.
 
 The scientific protocol remains a proposal for team review and validation.
-The current draft is `proposal/main.tex` / `proposal/main.pdf`. The previous
-ALOHA/ACT outline by Gonzalo is preserved in `proposal/archive/`; the final report
+The current draft is `docs/proposal/main.tex` / `docs/proposal/main.pdf`. The previous
+ALOHA/ACT outline by Gonzalo is preserved in `docs/proposal/archive/`; the final report
 remains a scaffold with no experimental results.
 
 ## Current proposal (draft for team review, 8 October 2026)
 
-The proposal (`proposal/main.pdf`, `proposal/main.docx`) follows the six required
+The proposal (`docs/proposal/main.pdf`, `docs/proposal/main.docx`) follows the six required
 headings. Red text marks what the team must decide or write.
 
 - **Requirements (R1–R6):** zero block action labels; same labeled cube data for
@@ -55,7 +55,7 @@ headings. Red text marks what the team must decide or write.
 Core papers (read before writing the Methodology): Morin et al. ICML 2026
 (arXiv 2602.02762), OCBench (arXiv 2610.07056), DANN (arXiv 1505.07818), GDA
 NeurIPS 2025 (arXiv 2509.18631), Lei et al. ICML 2026 (arXiv 2604.13645).
-Full selection and evidence: [baseline-selection.md](research_notes/action-free-robot-learning/baseline-selection.md).
+Full selection and evidence: [baseline-selection.md](docs/research/action-free-robot-learning/baseline-selection.md).
 
 ## Decisions for team review
 
@@ -70,14 +70,14 @@ Full selection and evidence: [baseline-selection.md](research_notes/action-free-
 
 ## Deliverables
 
-Literature selection and experimental recommendations: [Action-free robot learning review](research_notes/action-free-robot-learning/review.md) (7 October 2026; primary-source review, no experiments).
-Baseline selection (top 5 comparisons, GDA verdict, novelty check): [baseline-selection.md](research_notes/action-free-robot-learning/baseline-selection.md) (8 October 2026; verified against primary sources, no experiments).
+Literature selection and experimental recommendations: [Action-free robot learning review](docs/research/action-free-robot-learning/review.md) (7 October 2026; primary-source review, no experiments).
+Baseline selection (top 5 comparisons, GDA verdict, novelty check): [baseline-selection.md](docs/research/action-free-robot-learning/baseline-selection.md) (8 October 2026; verified against primary sources, no experiments).
 
 | Deliverable | Weight | Due | Source | PDF |
 |---|---:|---|---|---|
-| Proposal | 5% | Oct 11 (extended from Oct 7) | [`proposal/main.tex`](proposal/main.tex) | [`proposal/main.pdf`](proposal/main.pdf) |
-| Presentation | 20% | Last 1–2 weeks of class | [`presentation/`](presentation) | — |
-| Final report | 20% | Dec 6, 23:59 | [`report/main.tex`](report/main.tex) | [`report/main.pdf`](report/main.pdf) |
+| Proposal | 5% | Oct 11 (extended from Oct 7) | [`docs/proposal/main.tex`](docs/proposal/main.tex) | [`docs/proposal/main.pdf`](docs/proposal/main.pdf) |
+| Presentation | 20% | Last 1–2 weeks of class | [`docs/presentation/`](docs/presentation) | — |
+| Final report | 20% | Dec 6, 23:59 | [`docs/report/main.tex`](docs/report/main.tex) | [`docs/report/main.pdf`](docs/report/main.pdf) |
 | Peer reviews | 5% | Dec 13, 23:59 | — | — |
 
 Requirements and rubrics for each: [`docs/course-requirements.md`](docs/course-requirements.md).
@@ -85,14 +85,84 @@ Requirements and rubrics for each: [`docs/course-requirements.md`](docs/course-r
 ## Layout
 
 ```
-proposal/        proposal (≈2 pages, <1,000 words + 1 page of references)
-report/          final report, NeurIPS 2026 style (5,000–8,000 words)
-presentation/    slides
-docs/            course requirements, generative-AI use log
-references.bib   shared bibliography for all documents
+src/action_free/
+  data.py            dataset loading, splits, image/action alignment
+  idm.py             inverse dynamics model and domain discriminator
+  policy.py          image-only manipulation policy
+  train.py           training, adaptation, and pseudo-labeling
+  evaluate.py        rollouts, errors, retention, and latency
+scripts/             collection, training, and evaluation entry points
+configs/             experiment parameters
+tests/               tests for project code
+third_party/ocbench/  OCBench fork, pinned as a Git submodule
+data/                generated datasets (ignored by Git)
+outputs/             checkpoints, logs, results (ignored by Git)
+docs/
+  proposal/          proposal source, PDF, Word copy, and archive
+  report/            final report source, PDF, and Word copy
+  presentation/      slides
+  research/          literature reviews and baseline selection
+  tools/             document export tools and Word template
+  references.bib     shared bibliography
+  course-requirements.md
+  ai-use-log.md
+pyproject.toml       package, dependencies, and development tools
+uv.lock              resolved dependency versions
+Makefile             document builds
 ```
 
-Code (simulation, IDM, policy, evaluation) will be added as the project starts.
+The Python modules currently document their responsibilities; collection, models,
+training, and evaluation are not implemented yet. Keep the package flat and
+introduce subpackages only when the code needs them. Simulator geometry,
+scripted expert grasps, and environment success conditions belong in the
+OCBench fork.
+
+## Python development
+
+Use Python 3.10 or newer and `uv`. From the project root:
+
+```bash
+git submodule update --init --recursive
+uv sync --locked
+mkdir -p data outputs
+uv run python -c "import action_free, ocbench; print(action_free.__file__); print(ocbench.__file__)"
+uv run ruff check src scripts
+uv run ruff format --check src scripts
+```
+
+`uv` installs this package and `third_party/ocbench` in editable mode into `.venv/`,
+so local source edits are immediately available to imports. Dependencies and
+OCBench extras are declared in `pyproject.toml` and resolved in `uv.lock`.
+`uv run pytest` will run project tests once behavior is implemented and tests
+are added under `tests/`.
+
+## OCBench submodule
+
+Our fork is [BrikHMP18/ocbench](https://github.com/BrikHMP18/ocbench), based on
+[seohongpark/ocbench](https://github.com/seohongpark/ocbench). It lives in
+`third_party/ocbench`; the parent repository records its exact commit. The initial
+pin is `6939a1e84f7ce9dbdd20c9f80d4cf335e8f83b49`, which changes only the upstream
+README relative to the inspection baseline above. No simulator pilot has run yet.
+
+Clone the project with its dependency (GitHub SSH access required):
+
+```bash
+git clone --recurse-submodules git@github.com:BrikHMP18/ecse-552-project.git
+```
+
+For an existing checkout, run from the project root:
+
+```bash
+git submodule update --init --recursive
+mkdir -p data
+```
+
+Keep generated datasets under the project's `data/`, outside the submodule.
+Commit simulator and expert changes in the fork and push them there before
+committing the updated submodule pointer in this project. The submodule's
+`origin` points to our fork; this checkout also has an `upstream` remote pointing
+to `git@github.com:seohongpark/ocbench.git` (local remote settings are not shared
+by Git).
 
 ## Writing format
 
@@ -114,7 +184,7 @@ A1–A10 mapping is kept in LaTeX comments so its prose reads naturally.
 ```bash
 make            # proposal + report, PDF and Word
 make proposal   # one document (PDF)
-make docx       # Word copies only (proposal/main.docx, report/main.docx)
+make docx       # Word copies only (docs/proposal/main.docx, docs/report/main.docx)
 make clean      # remove LaTeX build files
 ```
 
@@ -123,11 +193,11 @@ make clean      # remove LaTeX build files
 Drive back into `main.tex`. The Word copy approximates the PDF without its exact
 layout: Times New Roman 10 pt, justified paragraphs, numbered
 sections, and numbered citations that link to the reference list (IEEE style from
-`tools/ieee.csl`, CC BY-SA 3.0, from the
+`docs/tools/ieee.csl`, CC BY-SA 3.0, from the
 [CSL styles repository](https://github.com/citation-style-language/styles)). Text is
 black except the team's notes (`[TEAM: ...]`, `[TO WRITE: ...]`), which stay red
-as in the PDF. The template `tools/reference.docx` is
-built by `tools/make_reference_docx.py`; `tools/docx_fix_bookmarks.py` keeps only
+as in the PDF. The template `docs/tools/reference.docx` is
+built by `docs/tools/make_reference_docx.py`; `docs/tools/docx_fix_bookmarks.py` keeps only
 the bookmarks citations link to, with visible names, so links survive Google Docs
 import without a marker icon on every heading.
 

@@ -8,9 +8,9 @@ Late work loses **10% per started 10-hour interval**.
 
 | Deliverable | Weight | Due | Folder |
 |---|---:|---|---|
-| Proposal | 5% | Oct 11, 2026 (extended from Oct 7) | [`proposal/`](../proposal) |
-| Presentation | 20% | Last 1–2 weeks of class (slot TBD) | [`presentation/`](../presentation) |
-| Final report | 20% | Dec 6, 2026, 23:59 | [`report/`](../report) |
+| Proposal | 5% | Oct 11, 2026 (extended from Oct 7) | [`proposal/`](proposal) |
+| Presentation | 20% | Last 1–2 weeks of class (slot TBD) | [`presentation/`](presentation) |
+| Final report | 20% | Dec 6, 2026, 23:59 | [`report/`](report) |
 | Two peer reviews | 5% | Dec 13, 2026, 23:59 | — |
 
 Rules that apply to every deliverable:

@@ -1,7 +1,7 @@
 -- Pandoc filter for `make docx`.
 -- Team notes (\todo, \decide, and the ideas environment) are red in the PDF and
 -- stay red in Word through the "Team Note" character style defined in
--- tools/reference.docx; everything else is black.
+-- docs/tools/reference.docx; everything else is black.
 -- \paragraph{} headings stay unnumbered, as in the PDF.
 
 local function team(inlines)

@@ -11,3 +11,17 @@
 
 # Course outline copy: instructor material, not for redistribution (repo is public)
 docs/project-info.md
+
+# Generated datasets stay outside version control.
+/data/
+
+# Experiment artifacts and local Python environment.
+/outputs/
+/.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+/.pytest_cache/
+/.ruff_cache/
+/build/
+/dist/

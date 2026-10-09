@@ -6,7 +6,7 @@ them on import, so citation links stop working; Google Docs also shows a marker
 icon for every bookmark it keeps. This removes bookmarks no link points to and
 gives the remaining ones (the reference-list entries) visible names (`ref_<n>`).
 
-Usage: python3 tools/docx_fix_bookmarks.py main.docx
+Usage: python3 docs/tools/docx_fix_bookmarks.py main.docx
 """
 
 import re
