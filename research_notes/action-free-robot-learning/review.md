@@ -2,6 +2,10 @@
 
 *Literature review for ECSE 552 · 7 October 2026 · Recommendations for team review; no experiments performed.*
 
+> **Superseded in part (8 October 2026):** the proposal now uses 300 labeled cube
+> demonstrations, not 50, and the baseline choice is in
+> [baseline-selection.md](baseline-selection.md). The reasoning below still holds.
+
 **The strongest reading set is BCO, Giving Robots a Hand, AMPLIFY, DANN, Zhao et al. on invariant representations, OCBench, and Diffusion Policy.** Together, they explain the learning mechanism, establish close robotic precedents, expose the assumptions behind adversarial alignment, and guide a practical experiment. The proposed study uses labeled cube demonstrations and action-free videos of an elongated block in OCBench; both learned models receive images rather than simulator states. Its defensible contribution is a controlled investigation of whether adapting an inverse dynamics model improves transfer across object geometry, and whether alignment belongs in that model or the policy. Learning control from videos and transferring to tasks absent from action training already have precedents. The recommendations below therefore prioritize a clear supervision contract, matched comparisons, and informative failure analysis over a broad architecture survey. They refine the current proposal without treating implementation choices or feasibility as settled.
 
 ## Three predecessors define the mechanism and its assumptions
