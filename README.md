@@ -47,10 +47,11 @@ remains a scaffold with no experimental results.
 ## Deliverables
 
 Literature selection and experimental recommendations: [Action-free robot learning review](research_notes/action-free-robot-learning/review.md) (7 October 2026; primary-source review, no experiments).
+Baseline selection (top 5 comparisons, GDA verdict, novelty check): [baseline-selection.md](research_notes/action-free-robot-learning/baseline-selection.md) (8 October 2026; verified against primary sources, no experiments).
 
 | Deliverable | Weight | Due | Source | PDF |
 |---|---:|---|---|---|
-| Proposal | 5% | Oct 7, 23:59 | [`proposal/main.tex`](proposal/main.tex) | [`proposal/main.pdf`](proposal/main.pdf) |
+| Proposal | 5% | Oct 11 (extended from Oct 7) | [`proposal/main.tex`](proposal/main.tex) | [`proposal/main.pdf`](proposal/main.pdf) |
 | Presentation | 20% | Last 1–2 weeks of class | [`presentation/`](presentation) | — |
 | Final report | 20% | Dec 6, 23:59 | [`report/main.tex`](report/main.tex) | [`report/main.pdf`](report/main.pdf) |
 | Peer reviews | 5% | Dec 13, 23:59 | — | — |
@@ -75,7 +76,8 @@ Proposal and report use the official **NeurIPS 2026** LaTeX style in `preprint`
 mode, with visible authors. The unmodified `neurips_2026.sty` files come from the
 [official author kit](https://media.neurips.cc/Conferences/NeurIPS2026/Formatting_Instructions_For_NeurIPS_2026.zip),
 linked by the [2026 call for papers](https://neurips.cc/Conferences/2026/CallForPapers).
-Do not override its margins, fonts, title layout, or heading spacing.
+Do not override its margins, fonts, title layout, or heading spacing. The only change is removing the "Preprint." notice at the
+foot of page 1, since these are course documents.
 
 The course determines the document structure: the proposal retains its six required
 sections and fewer than 1,000 words; the report retains Abstract, Introduction,
@@ -86,10 +88,24 @@ A1–A10 mapping is kept in LaTeX comments so its prose reads naturally.
 ## Building
 
 ```bash
-make            # proposal + report
-make proposal   # one document
+make            # proposal + report, PDF and Word
+make proposal   # one document (PDF)
+make docx       # Word copies only (proposal/main.docx, report/main.docx)
 make clean      # remove LaTeX build files
 ```
+
+`main.docx` is a one-way export for sharing on Google Drive (requires
+[pandoc](https://pandoc.org)). LaTeX stays the source: copy any edits made in
+Drive back into `main.tex`. The Word copy approximates the PDF without its exact
+layout: Times New Roman 10 pt, justified paragraphs, numbered
+sections, and numbered citations that link to the reference list (IEEE style from
+`tools/ieee.csl`, CC BY-SA 3.0, from the
+[CSL styles repository](https://github.com/citation-style-language/styles)). Text is
+black except the team's notes (`[TEAM: ...]`, `[TO WRITE: ...]`), which stay red
+as in the PDF. The template `tools/reference.docx` is
+built by `tools/make_reference_docx.py`; `tools/docx_fix_bookmarks.py` keeps only
+the bookmarks citations link to, with visible names, so links survive Google Docs
+import without a marker icon on every heading.
 
 Commit the rebuilt PDF together with any `.tex` change.
 

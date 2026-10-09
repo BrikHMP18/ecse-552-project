@@ -1,20 +1,30 @@
-% NeurIPS 2026 typography; the six proposal sections follow ECSE 552 requirements.
+% NeurIPS 2026 typography; the six proposal sections follow ECSE 552 requirements
+% exactly, with paragraph subtitles mapping to items A1--A10 (marked in comments).
 % Limit: about two pages, under 1,000 words, plus one page for references.
-% Red text is for the team: each [TO WRITE] marks a paragraph to write, and the
-% red bullets below it are starting ideas. Replace both with your own prose.
+% Base draft for team review (8 Oct 2026). Red [TEAM: ...] marks decisions the
+% team must make before submission. Revise the prose freely; it is a starting point.
 % Literature notes: research_notes/action-free-robot-learning/
 \documentclass{article}
 \PassOptionsToPackage{numbers,sort&compress}{natbib}
 \usepackage[preprint]{neurips_2026}
+% Course document, not a preprint: drop the "Preprint." notice on page 1.
+\makeatletter\renewcommand{\@noticestring}{}\makeatother
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{microtype}
 \usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
 \usepackage[hidelinks]{hyperref}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TO WRITE: #1]}}
+\newcommand{\decide}[1]{\textcolor{red}{[TEAM: #1]}}
+% Values the team still has to agree on (red) and member names to fill (light red).
+\newcommand{\tbd}[1]{\textcolor{red}{#1}}
+\definecolor{teamlight}{HTML}{E06666}
+\newcommand{\member}[1]{\textcolor{teamlight}{#1}}
 % Starting ideas, rendered in red so they are never submitted by accident.
 \newenvironment{ideas}
   {\color{red}\small\begin{itemize}\setlength{\itemsep}{0pt}}
@@ -30,151 +40,187 @@
 \begin{document}
 \maketitle
 
-\section{Background}
-% Rubric: A1--A2.
-\paragraph{Application and problem.}
-\todo{A1--A2, about 150 words. The application, the problem, and why a solution
-is needed.}
-\begin{ideas}
-  \item Robot imitation learning needs demonstrations paired with motor commands,
-    which are expensive to collect; videos without actions are much cheaper.
-  \item Setting: action-labeled demonstrations with one object (cube) and only
-    action-free videos with a new object (elongated block).
-  \item Question: can these videos teach a policy to manipulate the new object?
-  \item Labels are withheld in simulation on purpose, to emulate video-only data.
-  \item Inverse-dynamics pseudo-labeling already exists (BCO, VPT), but assumes
-    labeled and unlabeled data come from the same domain; here the object changes.
-  \item Frame the contribution as a controlled study of adaptation across object
-    geometry, not a new way of learning from video.
-\end{ideas}
-% Citable precedents (keys in ../references.bib):
-%   torabi2018bco      -- BCO: IDM trained on known actions labels observation-only demos, then BC.
-%   baker2022vpt       -- VPT: IDM on a small labeled set pseudo-labels large unlabeled video.
-%   kim2023givinghand  -- IDM from robot play labels human eye-in-hand video (arXiv 2023).
-%   collins2025amplify -- motion tokens from video + IDM; video-seen, action-unseen tasks (arXiv 2025).
+\section*{Background}
+% A1
+\paragraph{Application.}
+We focus on teaching a robot arm that already manipulates one object to handle a
+new one from videos alone, without recording new motor commands. This matters for
+warehouse and home robots, where new items arrive constantly and teleoperating
+each one is impractical. We study this in simulation with OCBench (UR5e arm,
+Robotiq gripper) \citep{ocbench2026}.
 
-% Rubric: A3.
-\paragraph{Design constraints.}
-\todo{A3, about 80 words. Requirements the design must satisfy, not team time or
-equipment.}
-\begin{ideas}
-  \item Target data are only ordered RGB images: no actions, robot states, object
-    poses, or annotations.
-  \item The learned policy sees only current and past images.
-  \item It must succeed in closed loop, with a fixed budget of source labels.
-  \item Simulator state is never an input to a learned model.
-\end{ideas}
+% A2
+\paragraph{Problem and need.}
+Visuomotor policies learn by imitating images paired with the motor commands that
+produced them. Recording these commands requires teleoperation, which is slow and
+costly: collecting 76k demonstrations took 50 people a year
+\citep{khazatsky2024droid}. Videos without commands are cheap (e.g., videos of the same robot generated
+by video world models \citep{jang2025dreamgen}), and inverse dynamics models (IDMs) let a
+robot learn from them: trained on labeled demonstrations, an IDM infers the
+command between two consecutive frames and labels videos for imitation
+\citep{torabi2018bco,baker2022vpt}, needing few labeled examples
+\citep{morin2026idmssil}. Our application adds one difficulty:
+the videos show an object absent from the labeled demonstrations, so the IDM must
+label images that differ from its training data. Formally, given labeled cube transitions
+$\mathcal{D}_A=\{(o_t,o_{t+1},a_t)\}$ and unlabeled block videos
+$\mathcal{D}_B=\{o_t\}$, we seek an image-only policy $\pi(a \mid o)$ that
+succeeds on the block under R1--R6, which requires labeling $\mathcal{D}_B$
+accurately without block labels.
 
-\section{Aims/Goals}
-% Rubric: A4.
+% A3
+\paragraph{Constraints.}
+The design must satisfy the requirements below (red values to be agreed).
+
+\begin{center}
+\small
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{2.0cm}>{\raggedright\arraybackslash}p{7.6cm}>{\raggedright\arraybackslash}p{2.3cm}@{}}
+\toprule
+ID & Requirement & Definition & Target \\
+\midrule
+R1 & Supervision & Block data are RGB frames only, without actions or states & 0 block labels \\
+R2 & Label budget & Labeled cube demonstrations, identical for every method & \tbd{300} demos \\
+R3 & Inputs & Policy sees only images; no simulator state in any model & Images only \\
+R4 & Target & Block success, as share of the gap from cube-only to oracle & $\geq$ \tbd{50\%} of gap \\
+R5 & Retention & Drop in cube success after adding block data & $\leq$ \tbd{10} points \\
+R6 & Real time & Policy inference per step at \tbd{10}\,Hz (offline IDM exempt) & $<$ \tbd{100}\,ms \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Aims/Goals}
+% A3
+\paragraph{Goals.}
+Train an image-only policy for the block from cube demonstrations and block
+videos alone. R4 and R5 are the performance targets; R1--R3 and R6 hold by design.
+
+% A4
 \paragraph{Scope.}
-\todo{A4, about 80 words. What is in and out of scope.}
-\begin{ideas}
-  \item OCBench visual single-block task in MuJoCo, UR5e arm with Robotiq gripper.
-  \item Source: the existing cube. Target: a new elongated-block variant, which
-    needs adapted expert grasps.
-  \item Keep cameras, lighting, goal, and initial-position distribution fixed.
-  \item Out of scope: human videos, real hardware, other spatial shifts.
-\end{ideas}
-% ocbench2026 -- OCBench (Park & Levine 2026, preprint): UR5e/Robotiq, MuJoCo, visual single-block lite task.
+We use the visual single-block task of OCBench. The source object is its cube; the
+target is a new elongated block, with adapted expert grasps. Cameras, lighting,
+goal, and initial positions stay fixed, so the object is the only change. Human
+videos, real hardware, other shifts, and large pretrained models are out of scope.
 
-% Rubric: A5.
-\paragraph{Hypothesis and contribution.}
-\todo{A5, about 70 words. The hypothesis and the expected contribution.}
-\begin{ideas}
-  \item Domain-adversarial training of the IDM may give better target pseudo-labels,
-    and therefore better policy success, than an unadapted IDM.
-  \item Second question: does alignment help more in the IDM or in the policy?
-  \item Risk to state honestly: invariance may also erase information needed to
-    predict actions; a negative result is still informative.
-\end{ideas}
-% ganin2016dann      -- DANN: gradient reversal against a domain discriminator.
-% zhao2019invariant  -- invariant features + low source error do not guarantee adaptation.
+% A5
+\paragraph{Proposed solution.}
+We adapt the IDM to the block before labeling. Since the arm looks the same in
+both domains and only the object changes, the IDM receives each frame with its
+difference to the next, emphasizing arm motion, and domain-adversarial training
+\citep{ganin2016dann} makes the remaining features indistinguishable between cube
+and block while they still predict cube commands. The adapted IDM labels the
+block videos for policy training; we also compare aligning the policy instead.
 
-\section{Methodology}
-% Rubric: A5--A6.
-\paragraph{Data and implementation.}
-\todo{A5--A6, about 200 words. Data generation, models, inputs and outputs,
-training objectives.}
-\begin{ideas}
-  \item Generate demonstrations with OCBench's scripted expert and data generator;
-    capture an image at every control step (the published visual data are sparse).
-  \item Actions: OCBench's existing normalized joint and gripper increments.
-  \item IDM: predicts the action from a short window of frames; it may look at
-    future frames because it only labels data offline.
-  \item Adaptation: a domain classifier (cube vs.\ block) with gradient reversal
-    on the IDM encoder, while the action head keeps predicting source actions.
-  \item Freeze the IDM, pseudo-label the block videos, train the policy on real
-    cube labels plus block pseudo-labels.
-  \item To decide: number of episodes, cameras, encoder, history length, loss
-    weights.
-\end{ideas}
+\section*{Methodology}
+% To be written by the team after reading the core papers
+% (research_notes/action-free-robot-learning/baseline-selection.md).
+% Previous draft kept below as comments for reference.
 
-% Rubric: A8.
+% A5, A6
+\paragraph{Design and implementation.}
+\todo{A5--A6, about 110 words. Architecture of the proposed solution (inputs,
+outputs, losses), how it is trained, and the tools used.}
+
+% A7
+\paragraph{Validation, testing, and evaluation.}
+\todo{A7, about 80 words. Data splits, model selection without block labels,
+metrics tied to R1--R6, seeds and episodes (agreed: 3 seeds $\times$ 100
+evaluation episodes per method and object, from initial states shared by all
+methods, fixed before seeing results).}
+
+% A8
 \paragraph{Alternatives.}
-\todo{A8, about 100 words. Alternatives run on our own data, and why ours could be
-better.}
-\begin{ideas}
-  \item Source-only cloning (ignores the block videos).
-  \item Pseudo-labels from an unadapted IDM (the BCO/VPT recipe).
-  \item Alignment in the policy instead of the IDM.
-  \item Reference trained with the true block actions (not a guaranteed upper bound).
-  \item A published policy such as Diffusion Policy on the same data.
-  \item Latent-action methods (LAPA, MotoVLA) as related work, too large to rerun.
-\end{ideas}
-% chi2023diffusionpolicy -- Diffusion Policy (RSS 2023); zhao2023act -- ACT (RSS 2023).
-% ye2025lapa, spiridonov2025motovla -- latent-action / action-free pretraining (ICLR 2025, CoRL 2025).
-% cheng2025gda -- GDA (NeurIPS 2025): OT alignment, uses action-labeled target demos.
+\todo{A8, about 100 words. Controls and baselines run on our data, and why the
+proposed solution could be superior.}
 
-% Rubric: A7.
-\paragraph{Validation and evaluation.}
-\todo{A7, about 100 words. Splits, model selection, metrics, episodes and seeds.}
-\begin{ideas}
-  \item Split by episode before cutting windows: source validation, target
-    adaptation, target development, final test.
-  \item Never use hidden block actions to select the adapted model.
-  \item Select policies by rollout success, since validation loss need not track
-    task success (OCBench).
-  \item Metrics: success rate per seed, failure type (grasp, transport, placement),
-    action error, source retention.
-\end{ideas}
-% ocbench2026 reports that validation loss need not track task success.
+% ---- Previous draft (not rendered) ----
+% % A5, A6
+% \paragraph{Design and implementation.}
+% The scripted expert records an image per control step; actions are seven
+% normalized joint and gripper increments. A \tbd{ResNet-18}
+% encoder, shared across the \tbd{three} cameras at \tbd{$84{\times}84$}, feeds an MLP
+% action head; the IDM may use future frames since it labels data offline. A
+% \tbd{two}-layer discriminator separates cube from block features through a
+% gradient-reversal layer whose weight $\lambda$ ramps up as in DANN; $\lambda = 0$
+% is the unadapted IDM. An image-only policy with the same
+% encoder, predicting chunks of \tbd{three} actions as closed-loop control needs
+% \citep{ocbench2026}, trains on cube labels and block pseudo-labels. All methods share encoder, augmentation,
+% policy, data, and budget (PyTorch).
+%
+% % A7
+% \paragraph{Validation, testing, and evaluation.}
+% Episodes are split, before cutting windows, into source validation, target
+% adaptation, development, and test sets. True block actions never select models:
+% $\lambda$ and checkpoints follow a source-based rule fixed in advance. Simulation
+% gives exact pseudo-label error per action component and phase (approach, grasp,
+% transport). Policies are evaluated in closed loop on block and cube with
+% \tbd{three} seeds and \tbd{100} episodes each, with confidence intervals and
+% failure types. Latency (R6) is timed on the evaluation GPU, and a table checks R1--R6.
+%
+% % A8
+% \paragraph{Alternatives.}
+% All alternatives run on our data. Controls: a cube-only policy and a reference
+% trained with true block actions. Unadapted IDM labeling \citep{morin2026idmssil}
+% is the main baseline; DARE-GRAM \citep{nejjar2023daregram}, built for continuous
+% outputs, replaces the adversarial loss; gradient reversal on the policy encoder
+% \citep{kato2026udail} and GDA's optimal-transport alignment \citep{cheng2025gda}
+% move alignment into the policy; a Mean Teacher IDM \citep{tarvainen2017meanteacher}
+% uses block frames without adversarial training; LAOM \citep{nikulin2025laom} uses
+% them through latent actions. Ours could be superior because it corrects labels
+% before the policy sees them, and an IDM, tracking mostly arm motion, should
+% transfer across objects more easily than a policy.
 
-\section{Feasibility and resources}
-% Rubric: A9.
-\paragraph{Dataset, resources, and pilot.}
-\todo{A9, about 80 words. Dataset, compute, pilot, timeline.}
-\begin{ideas}
-  \item Data are generated by us in OCBench on CPU MuJoCo; GPU access to confirm.
-  \item Pilot checks: the expert succeeds on both objects, the source policy
-    succeeds on the cube, success drops on the block, the reference learns the block.
-\end{ideas}
+\section*{Feasibility and resources}
+% A9
+\paragraph{Dataset, resources, and plan.}
+We generate all data in OCBench on CPU MuJoCo: \tbd{300} labeled cube
+demonstrations and \tbd{200} block videos, with true block actions stored only for
+evaluation; no licensing or ethics constraints apply. Training needs one GPU
+\decide{source to confirm}, about \tbd{4} GPU-hours per run and \tbd{100} in
+total. Open-source domain-adaptation and imitation code lowers
+risk. A pilot by
+\tbd{October 21} checks the expert, the cube policy's drop on the block, and the
+growth of IDM error. Core methods
+follow by \tbd{November 1}; evaluation by \tbd{November 18}.
 
-\section{Risk analysis}
-% Rubric: A10.
+\section*{Risk analysis}
+% A10
 \paragraph{Pitfalls and mitigation.}
-\todo{A10, about 80 words. What could fail and what we will do about it.}
-\begin{ideas}
-  \item The block is too hard for the expert: shorten it, narrow its rotations.
-  \item Source-only already succeeds on the block: make the geometry change larger.
-  \item The cube demos do not cover the motions the block needs.
-  \item Alignment hurts: report it as negative transfer.
-\end{ideas}
+The shift may be too small to matter, as robot and cameras are unchanged; the
+pilot measures it, and we can enlarge the change. The block may need actions
+absent from cube demonstrations; invariant features can then discard information
+needed to predict them \citep{zhao2019invariant}, which per-component errors will
+expose. Closed-loop failure is mitigated by chunking; expert failure on the
+block, by shortening it. If alignment hurts, we report negative transfer. If time runs short, optional
+baselines go first; the core comparison (cube-only policy, unadapted IDM, our
+method, reference) stays.
 
-\section{Role of group members}
-\todo{Explicit division of work: who does what.}
-\begin{ideas}
-  \item Possible work packages: simulation and data; policy and baselines; IDM
-    and adaptation; evaluation and integration.
-\end{ideas}
+\section*{Role of group members}
+All members collaborate and review the report.
 
-{\footnotesize\textbf{Generative-AI disclosure.} Codex (OpenAI) and Claude Code
-(Anthropic) assisted with the document structure, starting ideas, literature
-search, bibliography, and LaTeX formatting. \todo{Confirm: the proposal text was
-written by the team.}}
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{7.0cm}@{}}
+\toprule
+Member & Role & Tasks \\
+\midrule
+\member{MEMBER 1} & Simulation and data & Block model, expert grasps, data generation, splits \\
+\member{MEMBER 2} & IDM and adaptation & IDM, adaptation method, pseudo-label errors \\
+\member{MEMBER 3} & Policy and alternatives & Policy, controls, alternative methods \\
+\member{MEMBER 4} & Evaluation and integration & Rollouts, statistics, requirement table, figures \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
 
 % Only works cited with \citep{} appear in the references.
 \clearpage
+{\footnotesize\textbf{Generative-AI disclosure.} Codex (OpenAI) and Claude Code
+(Anthropic) assisted with literature search, bibliography formatting, document
+structure, and prose. We used them to survey recent work and to format the
+document; the team revised all text and verified every claim and citation against
+the original sources.}
+
+{\small
 \bibliographystyle{unsrtnat}
-\bibliography{../references}
+\bibliography{../references}}
 \end{document}
