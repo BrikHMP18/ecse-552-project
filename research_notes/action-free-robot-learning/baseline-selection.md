@@ -228,3 +228,28 @@ video"*.
 - No experiment, runtime check or compute estimate was performed.
 - Unverified: the Vidar masked-IDM accuracy figures (secondary summary only); whether CFG-ADDA needs target actions in every variant; compute for Morin et al. and LDP.
 - The elongated block and its scripted grasp do not exist in OCBench yet; the oracle and B depend on them.
+
+## Future work: labeling generated videos (discussed 8 October 2026)
+
+The proposal motivates action-free videos with world models and video generation
+models ([DreamGen, CoRL 2025](https://proceedings.mlr.press/v305/jang25a.html)).
+Options if the team later labels generated videos instead of simulator videos:
+
+- **NVIDIA Cosmos-Predict2.5** (open weights, NVIDIA Open Model License, 2B/14B,
+  robot-specific variants): can be fine-tuned on our robot data, as DreamGen does.
+  Best fit. [Project](https://research.nvidia.com/labs/cosmos-lab/cosmos-predict2.5).
+- **Google Gemini Omni** (announced at I/O, 19 May 2026; unifies Veo, Nano Banana,
+  and Genie): Omni Flash accepts a reference video and can add or replace objects,
+  so a simulator video of the cube could be edited to show the block while keeping
+  physically correct arm motion. The trajectory would still be the cube's grasp, so
+  this tests visual shift, not geometry shift. Paid preview; no peer-reviewed paper.
+- **Veo 3.1 / Genie 3**: closed, no fine-tuning on our robot; arm kinematics may be
+  implausible. Illustration only.
+
+Caveats: no ground-truth actions in generated videos (evaluate by closed-loop
+success in simulation only); video frame rate and motion speed must match the
+10 Hz action increments, or the IDM infers wrongly scaled actions; generation is
+billed per second (third-party estimates: about $0.05 to $0.40 per second for Veo
+3.1, about $0.10 for Omni Flash at 720p; verify on Google's pricing page).
+Recommended framing for the report: limitation and future work (C11), not a
+dependency of the main experiment.
