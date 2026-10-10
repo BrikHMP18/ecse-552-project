@@ -77,7 +77,10 @@ def fix_styles(styles):
         block = re.sub(r"<w:rPr>.*?</w:rPr>", rpr, m.group(0), flags=re.S)
         if "<w:rPr>" not in block:
             block = block.replace("</w:style>", rpr + "</w:style>")
-        block = re.sub(r"<w:spacing [^>]*/>", '<w:spacing w:before="180" w:after="60" />', block)
+        # Compact headings so the Word copy fits two pages like the PDF: sections
+        # 8 pt before, paragraph titles (Heading4) 5 pt before, both 1 pt after.
+        before = "100" if sid == "Heading4" else "160"
+        block = re.sub(r"<w:spacing [^>]*/>", f'<w:spacing w:before="{before}" w:after="20" />', block)
         styles = styles.replace(m.group(0), block)
     # Body paragraphs: no extra space before, 4 pt after (pandoc's default is 9 pt).
     for sid in JUSTIFIED:
@@ -97,8 +100,20 @@ def fix_styles(styles):
         '<w:rPr><w:color w:val="FF0000" /></w:rPr></w:style>'
         '<w:style w:type="character" w:customStyle="1" w:styleId="TeamName">'
         '<w:name w:val="Team Name" /><w:basedOn w:val="DefaultParagraphFont" />'
-        '<w:rPr><w:color w:val="E06666" /></w:rPr></w:style></w:styles>',
+        '<w:rPr><w:color w:val="E06666" /></w:rPr></w:style>'
+        '<w:style w:type="character" w:customStyle="1" w:styleId="TeamReview">'
+        '<w:name w:val="Team Review" /><w:basedOn w:val="DefaultParagraphFont" />'
+        '<w:rPr><w:highlight w:val="yellow" /></w:rPr></w:style></w:styles>',
     )
+    # Tables: thin black grid on every cell, as in the team's Drive copy.
+    m = style_block(styles, "Table")
+    if m:
+        border = '<w:{0} w:val="single" w:sz="4" w:space="0" w:color="000000" />'
+        grid = "<w:tblBorders>" + "".join(
+            border.format(side) for side in ["top", "left", "bottom", "right", "insideH", "insideV"]
+        ) + "</w:tblBorders>"
+        block = m.group(0).replace("<w:tblCellMar>", grid + "<w:tblCellMar>", 1)
+        styles = styles.replace(m.group(0), block)
     # Links (citations, URLs) black and not underlined, like the PDF's hidelinks.
     m = style_block(styles, "Hyperlink")
     if m:
