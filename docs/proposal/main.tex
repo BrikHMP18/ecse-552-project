@@ -149,9 +149,17 @@ episodes per method and object, with identical initial states.}
 % A8
 \paragraph{Alternatives.}
 \review{We compare (a) a cube-only behavioral cloning policy, (b) an unadapted
-IDM, (c) our adversarial IDM, and (d) an oracle trained with true target actions;
-optionally, (e) applies the alignment to the policy encoder instead. (b) versus
-(c) isolates adaptation; (a) and (d) anchor R4.}
+IDM, (c) our adversarial IDM, (d) an oracle trained with true target actions,
+and (f) the cube-only policy trained with strong augmentation (full-range hue,
+brightness, contrast, and saturation jitter, and small random crops) and no
+target videos; optionally, (e) applies the alignment to the policy encoder
+instead. (b) versus (c) isolates adaptation; (f) versus (c) tests whether
+target videos are needed at all; (a) and (d) anchor R4. We expect (f) to be
+competitive on A but not on B and C: augmentation only covers changes we can
+anticipate and synthesize, such as color, whereas target videos show the
+actual new object, including geometry changes that no image transformation
+produces. (c) should also outperform (b), since an unadapted IDM has never
+seen the target object and may mislabel its frames.}
 
 \section*{Feasibility and resources}
 % A9
