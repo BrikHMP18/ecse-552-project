@@ -133,10 +133,12 @@ their difference, and an MLP regresses $a_t$ with mean squared error. A
 discriminator classifies these features as cube or target (binary
 cross-entropy); a gradient reversal layer returns its gradient to the encoder
 with flipped sign, scaled by a weight $\lambda$ that ramps up as in DANN;
-$\lambda=0$ gives the unadapted IDM. The policy shares the encoder, takes $o_t$,
-and is trained with flow matching to predict the next \tbd{25} actions, executed
-open loop as in OCBench \citep{ocbench2026}. All methods share encoder, data, and
-budget (PyTorch).}
+$\lambda=0$ gives the unadapted IDM. The policy uses the same encoder
+architecture with separate, freshly initialized weights, takes $o_t$, and is
+trained with flow matching to predict the next 25 actions, executed open loop
+as in OCBench \citep{ocbench2026}; only the IDM is adapted, except in (f). All
+methods share the encoder architecture, cube demonstrations, and budget
+(PyTorch).}
 
 % A7
 \paragraph{Validation, testing, and evaluation.}
@@ -150,11 +152,11 @@ episodes per method and object, with identical initial states.}
 \paragraph{Alternatives.}
 \review{We compare (a) a cube-only behavioral cloning policy, (b) an unadapted
 IDM, (c) our adversarial IDM, (d) an oracle trained with true target actions,
-and (f) the cube-only policy trained with strong augmentation (full-range hue,
+and (e) the cube-only policy trained with strong augmentation (full-range hue,
 brightness, contrast, and saturation jitter, and small random crops) and no
-target videos; optionally, (e) applies the alignment to the policy encoder
-instead. (b) versus (c) isolates adaptation; (f) versus (c) tests whether
-target videos are needed at all; (a) and (d) anchor R4. We expect (f) to be
+target videos; optionally, (f) applies the alignment to the policy encoder
+instead. (b) versus (c) isolates adaptation; (e) versus (c) tests whether
+target videos are needed at all; (a) and (d) anchor R4. We expect (e) to be
 competitive on A but not on B and C: augmentation only covers changes we can
 anticipate and synthesize, such as color, whereas target videos show the
 actual new object, including geometry changes that no image transformation
@@ -179,7 +181,7 @@ cube-only policy's success and the IDM's error.} Core methods follow by
 action each feature maps to \citep{zhao2019invariant}; we expect actions to stay
 readable from arm motion, which per-component errors will test.} If the expert
 fails on a target, we adjust the object or grasp\review{; if the cube-only policy
-fails on the cube, we use OCBench's shorter lite variant}. If alignment hurts, we report negative transfer; optional experiments (D, e) go
+fails on the cube, we use OCBench's shorter lite variant}. If alignment hurts, we report negative transfer; optional experiments (D, f) go
 first if time runs short.
 
 \section*{Role of group members}
