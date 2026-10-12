@@ -21,7 +21,7 @@ docx:
 		--reference-doc=../tools/reference.docx --number-sections \
 		--lua-filter=../tools/docx-filter.lua && \
 		python3 ../tools/docx_fix_bookmarks.py main.docx && \
-		python3 ../tools/docx_fix_tables.py main.docx) || exit 1; done
+		python3 ../tools/docx_fix_tables.py main.docx $$(if [ "$$d" = proposal ]; then echo --compact-proposal; fi)) || exit 1; done
 
 clean:
 	for d in $(DOCS); do (cd docs/$$d && latexmk -c main.tex); done
