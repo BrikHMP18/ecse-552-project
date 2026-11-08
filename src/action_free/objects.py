@@ -7,11 +7,19 @@ and the task stay fixed; only the manipulated object changes.
 Colours follow the proposal: a red source cube and a blue cube for target A. Stock OCBench
 renders the single cube blue, so the source sets `cube_colors=('red',)` explicitly
 (supported by our OCBench fork, CPU environments only).
+
+Every object shares `SCENE_KWARGS`: a dark-gray 12 cm (inner side) square marks the fixed
+goal, and success requires the whole cube inside it, resting on the table, released and
+still for 1 s. With 12 cm, 97% of resting expert placements fit fully inside; 8 cm fits
+only 60% (measured over 200 episodes, 8 November 2026).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+# Shared by every object so that only the manipulated object changes between domains.
+SCENE_KWARGS: dict = {"goal_marker_size": 0.12, "success_hold_time": 1.0}
 
 
 @dataclass(frozen=True)
@@ -33,6 +41,11 @@ OBJECTS: dict[str, ObjectSpec] = {
         ObjectSpec("D", "blue 9x7x6 cm block (appearance and geometry)", implemented=False),
     )
 }
+
+
+def env_kwargs(name: str) -> dict:
+    """OCBench environment arguments for an object: the shared scene plus the object."""
+    return {**SCENE_KWARGS, **get_object(name).env_kwargs}
 
 
 def get_object(name: str) -> ObjectSpec:

@@ -22,8 +22,8 @@ images; shared low-level control may use robot state.
   images; those files are not a drop-in dataset for our transition-based IDM.
 - Extend cube geometry and expert grasp logic for the target block. Validate
   successful demonstrations before training; this extension is not implemented.
-- Extend positional success to require a lift, release, and one second of stable
-  placement. Disable the stock early-success termination so this can be measured.
+- Mark the fixed goal with a dark-gray 12 cm square and require the whole cube inside
+  it, resting, released and still for 1 s (implemented; see Setup findings).
 - Adding Panda to OCBench is a possible later extension, not a project dependency.
 
 Inspection baseline: upstream commit `e2cd2f72110b66bd65afab1b855d81ebc73aeacc`.
@@ -150,7 +150,8 @@ MUJOCO_GL=egl uv run python scripts/render_cameras.py   # writes outputs/cameras
 
 It must print `observation: shape=(3, 224, 224, 3)` (front, side, wrist). Add
 `--object A` to render target A. `docs/ocbench_cameras.png` shows the expected views
-(seed 0): the red source cube on top, target A's blue cube below, identical otherwise.
+(seed 0): the red source cube on top, target A's blue cube below, identical otherwise,
+with the gray goal square in front of the robot.
 
 ### Data collection (ready; not started)
 
@@ -185,9 +186,11 @@ Every image step is stored (`observation_interval=1`), so each action has its
 seed is tried, unless `--keep-failures`. Episodes also store `qpos`/`qvel`: privileged
 state for evaluation only, never a model input.
 
-Smoke tests on CPU with software rendering: all 8 visual expert episodes succeeded, 40–74
-steps per episode, about 3 MB per episode compressed, about 20 s per episode. Estimates: 300
-demos ≈ 1 GB and ≈ 1.7 h on CPU rendering; EGL on a GPU should be faster.
+Smoke test with the goal square and strict success (CPU, software rendering): 5/5 visual
+expert episodes succeeded, 68–94 steps (mean 84), about 4.4 MB per episode compressed,
+about 28 s per episode. Estimates: 300 demos ≈ 1.3 GB and ≈ 2.4 h on CPU rendering; EGL on
+a GPU should be faster. Over 200 state-only episodes the expert succeeds in 94.5%; failed
+seeds are skipped automatically.
 
 ### Setup findings for team review (8 November 2026)
 
@@ -195,12 +198,21 @@ demos ≈ 1 GB and ≈ 1.7 h on CPU rendering; EGL on a GPU should be faster.
   although the proposal describes a red default. The team kept the proposal's colours:
   the fork's `BlockEnv` now takes `cube_colors` (default unchanged), and
   `objects.py` sets red for the source and blue for target A.
-- **Control rate.** The `lite` variant uses `control_timestep=0.1`, i.e. **10 Hz** and at
-  most 200 steps (20 s), not the 50 Hz in the proposal. The chunk length (25 actions = 2.5 s
-  at 10 Hz) and the R6 latency budget should be restated for 10 Hz.
-- **Early termination.** Episodes stop at first success (`terminate_at_success=True`).
-  `--no-terminate-at-success` runs to the time limit; the stricter lift, release and
-  stable-placement success is not implemented yet.
+- **Control rate (decided: 10 Hz).** The `lite` variant uses `control_timestep=0.1`, i.e.
+  **10 Hz** and at most 200 steps (20 s), not the 50 Hz in the proposal. 10 Hz gives the IDM
+  visible motion between consecutive frames and about five times less data per episode.
+  Decided with it: ACT chunks of **10 actions (1 s)** instead of 25, and R6 becomes policy
+  inference **< 100 ms per call**, so the policy could replan every step. The report must
+  state these changes from the proposal.
+- **Goal square and success (decided).** In the stock task the cube goes to a fixed,
+  invisible goal at (0.425, 0) and success fires when its centre is within 4 cm, often while
+  the cube is still in the gripper (median cube height at success 5.6 cm; resting is 3.0 cm).
+  The fork's `BlockEnv` now takes `goal_marker_size`: a flat, collision-free **dark-gray
+  square, 12 cm inside** (1 cm line), and success requires the whole cube inside it, resting
+  flat, touching only the table and still, for **1 s**. Episodes still stop at success, now
+  after the release. Cubes never start on the square. Gray, not red, so the marker does not
+  share the source cube's colour. 12 cm fits 97% of the expert's resting placements fully
+  inside; 8 cm fits 60%. Known gap: pushing the cube into the square would also count.
 - **PyTorch added** (`torch` 2.15, `torchvision` 0.29, from PyPI). These wheels are built
   for CUDA 13.2 and need an NVIDIA driver 580 or newer: check `nvidia-smi` on the GPU
   machine. With an older driver, switch to the CUDA 12.8 wheels from
@@ -213,9 +225,10 @@ Our fork is [BrikHMP18/ocbench](https://github.com/BrikHMP18/ocbench), based on
 [seohongpark/ocbench](https://github.com/seohongpark/ocbench). It lives in
 `third_party/ocbench`; the parent repository records its exact commit. The initial
 pin was `6939a1e84f7ce9dbdd20c9f80d4cf335e8f83b49`, which changes only the upstream
-README relative to the inspection baseline above. The current pin, `3d22c71` on the fork's
-`ecse552-cube-colors` branch, adds the optional `cube_colors` argument to `BlockEnv`. A short collection smoke test has run
-(see Data collection above); no pilot dataset exists yet.
+README relative to the inspection baseline above. The current pin, `f0b9f49` on the fork's
+`ecse552` branch, adds two optional `BlockEnv` arguments, `cube_colors` and
+`goal_marker_size` (with `success_hold_time`); stock defaults are unchanged. Short
+collection smoke tests have run (see Data collection above); no pilot dataset exists yet.
 
 Clone the project with its dependency. Both repositories are public and the submodule
 URL is HTTPS, so no SSH key is needed:

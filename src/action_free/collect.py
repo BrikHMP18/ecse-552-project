@@ -27,7 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
-from action_free.objects import get_object
+from action_free.objects import env_kwargs, get_object
 
 DEFAULT_ENV = "visual-block-cpu-lite-single-task1-v0"
 
@@ -50,8 +50,9 @@ def make_env(env_name: str, object_name: str = "source", terminate_at_success: b
 
     if "-cpu-" not in env_name:
         raise ValueError(f"Use a CPU environment (with '-cpu-'), got {env_name}.")
-    kwargs = get_object(object_name).env_kwargs
-    return ocbench.make(env_name, terminate_at_success=terminate_at_success, **kwargs)
+    return ocbench.make(
+        env_name, terminate_at_success=terminate_at_success, **env_kwargs(object_name)
+    )
 
 
 def make_expert(env, env_name: str):
@@ -159,7 +160,7 @@ def collect(cfg: CollectConfig) -> dict:
         "config": {k: str(v) if isinstance(v, Path) else v for k, v in asdict(cfg).items()},
         "object": {
             "description": get_object(cfg.object_name).description,
-            "env_kwargs": get_object(cfg.object_name).env_kwargs,
+            "env_kwargs": env_kwargs(cfg.object_name),
         },
         "num_kept": len(kept),
         "num_attempts": len(attempts),

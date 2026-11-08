@@ -66,3 +66,52 @@ def test_unimplemented_targets_fail_loudly():
     for name in ("B", "C", "D"):
         with pytest.raises(NotImplementedError):
             make_env(STATE_ENV, name)
+
+
+def _place_cube(env, xyz):
+    import mujoco
+
+    u = env.unwrapped
+    u._data.joint("object_joint_0").qpos[:7] = [*xyz, 1.0, 0.0, 0.0, 0.0]
+    u._data.joint("object_joint_0").qvel[:] = 0.0
+    mujoco.mj_forward(u._model, u._data)
+    return u
+
+
+def test_goal_marker_is_in_every_scene():
+    for name in ("source", "A"):
+        env = make_env(STATE_ENV, name)
+        env.reset(seed=0)
+        names = {env.unwrapped._model.geom(g).name for g in range(env.unwrapped._model.ngeom)}
+        env.close()
+        assert {"goal_marker_px", "goal_marker_nx", "goal_marker_py", "goal_marker_ny"} <= names
+
+
+def test_cube_never_starts_on_the_marker():
+    env = make_env(STATE_ENV)
+    goal = np.array([0.425, 0.0])
+    for seed in range(50):
+        env.reset(seed=seed)
+        xy = env.unwrapped._data.joint("object_joint_0").qpos[:2]
+        assert np.abs(xy - goal).max() > 0.06 + 0.01 + 0.03 * np.sqrt(2)
+    env.close()
+
+
+def test_strict_success_conditions():
+    env = make_env(STATE_ENV)
+    env.reset(seed=0)
+    cond = _place_cube(env, (0.425, 0.0, 0.03)).goal_marker_conditions(0)
+    assert cond == {"inside": True, "resting": True, "released": True, "still": True}
+    assert not _place_cube(env, (0.425, 0.0, 0.08)).goal_marker_conditions(0)["resting"]
+    assert not _place_cube(env, (0.475, 0.0, 0.03)).goal_marker_conditions(0)["inside"]
+    env.close()
+
+
+def test_success_needs_one_second_of_holding():
+    env = make_env(STATE_ENV)
+    env.reset(seed=0)
+    _place_cube(env, (0.425, 0.0, 0.03))
+    hold_steps = round(1.0 / env.unwrapped._control_timestep)  # 10 at 10 Hz
+    successes = [bool(env.step(np.zeros(7))[4]["success"]) for _ in range(hold_steps)]
+    env.close()
+    assert successes == [False] * (hold_steps - 1) + [True]
