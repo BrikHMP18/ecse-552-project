@@ -10,6 +10,8 @@ videos. Test whether adversarial adaptation of an inverse dynamics model improve
 pseudoactions and closed-loop policy success. The learned policy also uses only
 images; shared low-level control may use robot state.
 
+**Current status, decisions and next steps: [`context.md`](context.md).**
+
 ## Simulation and data plan
 
 - Start from `visual-block-cpu-lite-single-task1-v0` (CPU MuJoCo).
