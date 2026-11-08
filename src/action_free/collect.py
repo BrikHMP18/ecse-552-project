@@ -15,7 +15,7 @@ Episode file `episode_XXXXX.npz` (T control steps, C cameras):
     seed, success, length                   scalars
 
 Episodes that end unhealthy, or fail when `keep_failures` is false, are discarded and
-the next seed is tried; `manifest.json` records every attempt.
+the next seed is tried; `manifest.json` records every attempt and the object.
 """
 
 from __future__ import annotations
@@ -27,6 +27,8 @@ from pathlib import Path
 
 import numpy as np
 
+from action_free.objects import get_object
+
 DEFAULT_ENV = "visual-block-cpu-lite-single-task1-v0"
 
 
@@ -34,6 +36,7 @@ DEFAULT_ENV = "visual-block-cpu-lite-single-task1-v0"
 class CollectConfig:
     out_dir: Path
     env_name: str = DEFAULT_ENV
+    object_name: str = "source"
     num_episodes: int = 300
     base_seed: int = 0
     keep_failures: bool = False
@@ -41,10 +44,14 @@ class CollectConfig:
     max_attempts_factor: int = 3
 
 
-def make_env(env_name: str, terminate_at_success: bool = True):
+def make_env(env_name: str, object_name: str = "source", terminate_at_success: bool = True):
+    """Make a CPU OCBench environment showing the named object (see `objects.py`)."""
     import ocbench
 
-    return ocbench.make(env_name, terminate_at_success=terminate_at_success)
+    if "-cpu-" not in env_name:
+        raise ValueError(f"Use a CPU environment (with '-cpu-'), got {env_name}.")
+    kwargs = get_object(object_name).env_kwargs
+    return ocbench.make(env_name, terminate_at_success=terminate_at_success, **kwargs)
 
 
 def make_expert(env, env_name: str):
@@ -112,7 +119,7 @@ def collect(cfg: CollectConfig) -> dict:
     if any(out_dir.glob("episode_*.npz")):
         raise FileExistsError(f"{out_dir} already contains episodes; use a new directory.")
 
-    env = make_env(cfg.env_name, cfg.terminate_at_success)
+    env = make_env(cfg.env_name, cfg.object_name, cfg.terminate_at_success)
     attempts, kept = [], []
     seed = cfg.base_seed
     max_attempts = cfg.num_episodes * cfg.max_attempts_factor
@@ -150,6 +157,10 @@ def collect(cfg: CollectConfig) -> dict:
     lengths = [m["length"] for m in kept]
     summary = {
         "config": {k: str(v) if isinstance(v, Path) else v for k, v in asdict(cfg).items()},
+        "object": {
+            "description": get_object(cfg.object_name).description,
+            "env_kwargs": get_object(cfg.object_name).env_kwargs,
+        },
         "num_kept": len(kept),
         "num_attempts": len(attempts),
         "expert_success_rate": float(np.mean([m["success"] for m in attempts])),

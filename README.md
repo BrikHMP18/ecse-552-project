@@ -148,8 +148,9 @@ EGL (for example a CPU-only container), use software rendering through a virtual
 MUJOCO_GL=egl uv run python scripts/render_cameras.py   # writes outputs/cameras.png
 ```
 
-It must print `observation: shape=(3, 224, 224, 3)` (front, side, wrist).
-`docs/ocbench_cameras.png` shows the expected views.
+It must print `observation: shape=(3, 224, 224, 3)` (front, side, wrist). Add
+`--object A` to render target A. `docs/ocbench_cameras.png` shows the expected views
+(seed 0): the red source cube on top, target A's blue cube below, identical otherwise.
 
 ### Data collection (ready; not started)
 
@@ -159,6 +160,12 @@ MUJOCO_GL=egl uv run python scripts/collect_demos.py --num-episodes 5 --out-dir 
 # Source cube demonstrations (R2: 100, or 300 if cube-only ACT is below 80%).
 MUJOCO_GL=egl uv run python scripts/collect_demos.py --num-episodes 300
 ```
+
+Objects are named as in the proposal and defined in `src/action_free/objects.py`:
+`--object source` (default, red 6 cm cube) and `--object A` (blue 6 cm cube) work;
+`B`, `C` and `D` need new block geometry and expert grasps in the fork and raise
+`NotImplementedError` until then. Use separate base seeds for each object's collection
+and for evaluation, and record them before collecting.
 
 `scripts/collect_demos.py` (logic in `src/action_free/collect.py`) replaces OCBench's
 `generate_ocbench.py` for this project, for two reasons verified on 8 November 2026:
@@ -184,12 +191,10 @@ demos ≈ 1 GB and ≈ 1.7 h on CPU rendering; EGL on a GPU should be faster.
 
 ### Setup findings for team review (8 November 2026)
 
-- **Cube colour.** In OCBench the first cube is always **blue** (`_cube_colors[0]` in
-  `ocbench/envs/block_env.py`); it does not depend on the seed. The proposal calls the
-  source a red cube and target A a blue cube, so stock OCBench already renders the
-  target-A colour. Recommended: keep the stock blue cube as source (no fork change)
-  and make target A a **red** cube, B and C blue blocks, and D a red version of C.
-  Otherwise the fork must change the source colour.
+- **Cube colour (resolved).** Stock OCBench always renders the single cube **blue**,
+  although the proposal describes a red default. The team kept the proposal's colours:
+  the fork's `BlockEnv` now takes `cube_colors` (default unchanged), and
+  `objects.py` sets red for the source and blue for target A.
 - **Control rate.** The `lite` variant uses `control_timestep=0.1`, i.e. **10 Hz** and at
   most 200 steps (20 s), not the 50 Hz in the proposal. The chunk length (25 actions = 2.5 s
   at 10 Hz) and the R6 latency budget should be restated for 10 Hz.
@@ -204,8 +209,9 @@ demos ≈ 1 GB and ≈ 1.7 h on CPU rendering; EGL on a GPU should be faster.
 Our fork is [BrikHMP18/ocbench](https://github.com/BrikHMP18/ocbench), based on
 [seohongpark/ocbench](https://github.com/seohongpark/ocbench). It lives in
 `third_party/ocbench`; the parent repository records its exact commit. The initial
-pin is `6939a1e84f7ce9dbdd20c9f80d4cf335e8f83b49`, which changes only the upstream
-README relative to the inspection baseline above. A short collection smoke test has run
+pin was `6939a1e84f7ce9dbdd20c9f80d4cf335e8f83b49`, which changes only the upstream
+README relative to the inspection baseline above. The current pin, `3d22c71` on the fork's
+`ecse552-cube-colors` branch, adds the optional `cube_colors` argument to `BlockEnv`. A short collection smoke test has run
 (see Data collection above); no pilot dataset exists yet.
 
 Clone the project with its dependency. Both repositories are public and the submodule

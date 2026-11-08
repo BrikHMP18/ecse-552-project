@@ -12,8 +12,10 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-import ocbench
 from PIL import Image
+
+from action_free.collect import make_env
+from action_free.objects import OBJECTS
 
 CAMERAS = ("front", "side", "wrist")
 
@@ -21,12 +23,13 @@ CAMERAS = ("front", "side", "wrist")
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--env-name", default="visual-block-cpu-lite-single-task1-v0")
+    parser.add_argument("--object", default="source", choices=sorted(OBJECTS))
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, default=Path("outputs/cameras.png"))
     parser.add_argument("--gap", type=int, default=10, help="Pixels between views.")
     args = parser.parse_args()
 
-    env = ocbench.make(args.env_name)
+    env = make_env(args.env_name, args.object)
     ob, _ = env.reset(seed=args.seed)
     env.close()
     print(f"observation: shape={ob.shape} dtype={ob.dtype}")
