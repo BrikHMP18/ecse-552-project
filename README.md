@@ -86,6 +86,7 @@ Requirements and rubrics for each: [`docs/course-requirements.md`](docs/course-r
 
 ```
 src/action_free/
+  collect.py         seeded scripted-expert collection, one file per episode
   data.py            dataset loading, splits, image/action alignment
   idm.py             inverse dynamics model and domain discriminator
   policy.py          image-only manipulation policy
@@ -111,30 +112,92 @@ uv.lock              resolved dependency versions
 Makefile             document builds
 ```
 
-The Python modules currently document their responsibilities; collection, models,
-training, and evaluation are not implemented yet. Keep the package flat and
+Collection (`collect.py`) is implemented and tested; the other modules only document
+their responsibilities, and models, training, and evaluation are not implemented yet. Keep the package flat and
 introduce subpackages only when the code needs them. Simulator geometry,
 scripted expert grasps, and environment success conditions belong in the
 OCBench fork.
 
 ## Python development
 
-Use Python 3.10 or newer and `uv`. From the project root:
+Use Python **3.12** (pinned in `.python-version`; `pyproject.toml` allows 3.10–3.12) and
+`uv`. Python 3.13 fails: `dm-control`'s `labmaze` has no wheel and does not build.
+From the project root:
 
 ```bash
 git submodule update --init --recursive
 uv sync --locked
 mkdir -p data outputs
 uv run python -c "import action_free, ocbench; print(action_free.__file__); print(ocbench.__file__)"
-uv run ruff check src scripts
-uv run ruff format --check src scripts
+uv run pytest
+uv run ruff check src scripts tests
+uv run ruff format --check src scripts tests
 ```
 
 `uv` installs this package and `third_party/ocbench` in editable mode into `.venv/`,
 so local source edits are immediately available to imports. Dependencies and
 OCBench extras are declared in `pyproject.toml` and resolved in `uv.lock`.
-`uv run pytest` will run project tests once behavior is implemented and tests
-are added under `tests/`.
+
+### Headless rendering
+
+Visual environments render offscreen. On a GPU machine use `MUJOCO_GL=egl`. Without
+EGL (for example a CPU-only container), use software rendering through a virtual display:
+`MUJOCO_GL=glfw xvfb-run -a <command>`. Check rendering before collecting:
+
+```bash
+MUJOCO_GL=egl uv run python scripts/render_cameras.py   # writes outputs/cameras.png
+```
+
+It must print `observation: shape=(3, 224, 224, 3)` (front, side, wrist).
+`docs/ocbench_cameras.png` shows the expected views.
+
+### Data collection (ready; not started)
+
+```bash
+# Pilot: 5 demos, check success rate, length and disk use.
+MUJOCO_GL=egl uv run python scripts/collect_demos.py --num-episodes 5 --out-dir data/pilot
+# Source cube demonstrations (R2: 100, or 300 if cube-only ACT is below 80%).
+MUJOCO_GL=egl uv run python scripts/collect_demos.py --num-episodes 300
+```
+
+`scripts/collect_demos.py` (logic in `src/action_free/collect.py`) replaces OCBench's
+`generate_ocbench.py` for this project, for two reasons verified on 8 November 2026:
+
+- **Reproducibility.** OCBench's generator calls `env.reset()` without a seed, so two
+  runs with the same `--seed` produce different initial states. Ours seeds every
+  episode (environment and expert) with `base_seed + attempt`; two runs give
+  byte-identical images and actions (`tests/test_collect.py`). This is what lets
+  every method be evaluated from the same initial states.
+- **Memory.** The generator keeps the whole dataset in RAM before saving (about 7 GB of
+  images for 300 demos, doubled when converted). Ours writes one
+  `episode_XXXXX.npz` per episode, plus `manifest.json` (every attempt and seed),
+  `provenance.txt` (command and commits) and `packages.txt`.
+
+Every image step is stored (`observation_interval=1`), so each action has its
+`(o_t, o_{t+1})` pair. Unsuccessful or unhealthy expert episodes are skipped and the next
+seed is tried, unless `--keep-failures`. Episodes also store `qpos`/`qvel`: privileged
+state for evaluation only, never a model input.
+
+Smoke tests on CPU with software rendering: all 8 visual expert episodes succeeded, 40–74
+steps per episode, about 3 MB per episode compressed, about 20 s per episode. Estimates: 300
+demos ≈ 1 GB and ≈ 1.7 h on CPU rendering; EGL on a GPU should be faster.
+
+### Setup findings for team review (8 November 2026)
+
+- **Cube colour.** In OCBench the first cube is always **blue** (`_cube_colors[0]` in
+  `ocbench/envs/block_env.py`); it does not depend on the seed. The proposal calls the
+  source a red cube and target A a blue cube, so stock OCBench already renders the
+  target-A colour. Recommended: keep the stock blue cube as source (no fork change)
+  and make target A a **red** cube, B and C blue blocks, and D a red version of C.
+  Otherwise the fork must change the source colour.
+- **Control rate.** The `lite` variant uses `control_timestep=0.1`, i.e. **10 Hz** and at
+  most 200 steps (20 s), not the 50 Hz in the proposal. The chunk length (25 actions = 2.5 s
+  at 10 Hz) and the R6 latency budget should be restated for 10 Hz.
+- **Early termination.** Episodes stop at first success (`terminate_at_success=True`).
+  `--no-terminate-at-success` runs to the time limit; the stricter lift, release and
+  stable-placement success is not implemented yet.
+- **PyTorch is not a dependency.** OCBench's `train` extra is JAX. The proposal trains
+  the IDM and ACT in PyTorch, so `torch` must be added when the models are written.
 
 ## OCBench submodule
 
@@ -142,13 +205,17 @@ Our fork is [BrikHMP18/ocbench](https://github.com/BrikHMP18/ocbench), based on
 [seohongpark/ocbench](https://github.com/seohongpark/ocbench). It lives in
 `third_party/ocbench`; the parent repository records its exact commit. The initial
 pin is `6939a1e84f7ce9dbdd20c9f80d4cf335e8f83b49`, which changes only the upstream
-README relative to the inspection baseline above. No simulator pilot has run yet.
+README relative to the inspection baseline above. A short collection smoke test has run
+(see Data collection above); no pilot dataset exists yet.
 
-Clone the project with its dependency (GitHub SSH access required):
+Clone the project with its dependency. Both repositories are public and the submodule
+URL is HTTPS, so no SSH key is needed:
 
 ```bash
-git clone --recurse-submodules git@github.com:BrikHMP18/ecse-552-project.git
+git clone --recurse-submodules https://github.com/BrikHMP18/ecse-552-project.git
 ```
+
+Existing checkouts that used the old SSH URL should run `git submodule sync` once.
 
 For an existing checkout, run from the project root:
 
