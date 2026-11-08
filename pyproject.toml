@@ -8,7 +8,12 @@ version = "0.1.0"
 description = "Action-free object transfer through inverse dynamics adaptation."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
-dependencies = ["ocbench[mjwarp,train]", "pillow"]
+dependencies = [
+    "ocbench[mjwarp,train]",
+    "pillow",
+    "torch>=2.14.1",
+    "torchvision>=0.29.2",
+]
 
 [dependency-groups]
 dev = ["pytest", "ruff"]

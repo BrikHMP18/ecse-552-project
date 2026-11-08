@@ -201,8 +201,11 @@ demos ≈ 1 GB and ≈ 1.7 h on CPU rendering; EGL on a GPU should be faster.
 - **Early termination.** Episodes stop at first success (`terminate_at_success=True`).
   `--no-terminate-at-success` runs to the time limit; the stricter lift, release and
   stable-placement success is not implemented yet.
-- **PyTorch is not a dependency.** OCBench's `train` extra is JAX. The proposal trains
-  the IDM and ACT in PyTorch, so `torch` must be added when the models are written.
+- **PyTorch added** (`torch` 2.15, `torchvision` 0.29, from PyPI). These wheels are built
+  for CUDA 13.2 and need an NVIDIA driver 580 or newer: check `nvidia-smi` on the GPU
+  machine. With an older driver, switch to the CUDA 12.8 wheels from
+  `download.pytorch.org` (not reachable from the cloud session that set this up).
+  JAX (CUDA 12) stays installed through OCBench's `train` extra; the project does not use it.
 
 ## OCBench submodule
 
