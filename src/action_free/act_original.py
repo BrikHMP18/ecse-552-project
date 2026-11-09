@@ -5,9 +5,10 @@ run it on our data, from the outside:
 
 1. `export`: our episodes -> ACT's HDF5 layout (`/observations/images/<camera>`,
    `/observations/qpos`, `/observations/qvel`, `/action`, attribute `sim`). Actions are
-   absolute joint targets (`actions.to_absolute`), as in ACT. `qpos` and `qvel` are all zeros,
-   so the policy cannot use robot state (R3: images only); this is the one deliberate change
-   from ACT.
+   absolute joint targets (`actions.to_absolute`), as in ACT. `qpos` is all zeros, so the
+   policy cannot use robot state (R3: images only), the one deliberate change from ACT;
+   `use_robot_state=True` exports the arm joints and gripper opening instead (a reference
+   run that measures what R3 costs, never part of the method comparison).
 2. Upstream assumptions of its bimanual, fixed-length simulation, adapted without editing
    upstream files:
    - state/action dimension is hardcoded to 14: our 7 action dimensions are zero-padded to
@@ -36,7 +37,7 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
-from action_free.actions import to_absolute
+from action_free.actions import ARM_QPOS, gripper_opening, to_absolute
 
 ACT_ROOT = Path(
     os.environ.get("ACT_ROOT", Path(__file__).resolve().parents[2] / "third_party" / "act")
@@ -87,7 +88,17 @@ def _cli(a: dict) -> list[str]:
     return out
 
 
-def export(files: list[Path], out_dir: Path) -> list[dict]:
+def robot_state(qpos: np.ndarray, use_robot_state: bool) -> np.ndarray:
+    """Upstream's 14-dim `qpos` input: arm joints and gripper opening, or zeros (R3)."""
+    qpos = np.atleast_2d(qpos)
+    state = np.zeros((qpos.shape[0], STATE_DIM), np.float32)
+    if use_robot_state:
+        state[:, :6] = qpos[:, ARM_QPOS]
+        state[:, 6] = gripper_opening(qpos)
+    return state
+
+
+def export(files: list[Path], out_dir: Path, use_robot_state: bool = False) -> list[dict]:
     """Write ACT HDF5 episodes `episode_<i>.hdf5` (i in file order) and `episodes.json`."""
     import h5py
 
@@ -104,6 +115,7 @@ def export(files: list[Path], out_dir: Path) -> list[dict]:
             action = np.zeros((steps, STATE_DIM), np.float32)
             action[:, :ACTION_DIM] = to_absolute(ep["actions"], ep["qpos"])
             seed = int(ep["seed"])
+            state = robot_state(ep["qpos"], use_robot_state)
         with h5py.File(out_dir / f"episode_{i}.hdf5", "w") as h:
             h.attrs["sim"] = True
             g = h.create_group("observations")
@@ -112,7 +124,7 @@ def export(files: list[Path], out_dir: Path) -> list[dict]:
                 images.create_dataset(
                     cam, data=obs[:, k], chunks=(1, *obs.shape[2:]), compression="lzf"
                 )
-            g.create_dataset("qpos", data=np.zeros((steps, STATE_DIM), np.float32))
+            g.create_dataset("qpos", data=state)
             g.create_dataset("qvel", data=np.zeros((steps, STATE_DIM), np.float32))
             h.create_dataset("action", data=action)
         index.append({"episode": i, "file": Path(f).name, "seed": seed, "length": steps})
@@ -190,6 +202,8 @@ def describe_split(dataset_dir: Path, source_dir: Path, split: dict) -> dict:
     return {
         "source_dir": str(source_dir),
         "object": manifest["config"]["object_name"],
+        "scene_name": manifest["config"].get("scene", "default"),
+        "expert": manifest["config"].get("expert", "ocbench"),
         "scene": manifest["object"]["env_kwargs"],
         "train_files": train_files,
         "val_files": [index[i]["file"] for i in split.get("val", [])],
@@ -266,6 +280,7 @@ def train(
     record = {
         "act_args": args,
         "chunk_size": cfg["chunk_size"],
+        "use_robot_state": bool(cfg.get("use_robot_state", False)),
         "num_episodes": num_episodes,
         "split": split,  # upstream's own random 80/20 split of episode indices
         "best_epoch": best["epoch"],
@@ -308,13 +323,20 @@ class ActPolicy:
         self.device = device
         self.run = run
         self.cfg = SimpleNamespace(chunk=a["chunk_size"])
-        self.mean = torch.as_tensor(stats["action_mean"], dtype=torch.float32, device=device)
-        self.std = torch.as_tensor(stats["action_std"], dtype=torch.float32, device=device)
+        self.uses_robot_state = bool(run.get("use_robot_state", False))
+        t = lambda v: torch.as_tensor(v, dtype=torch.float32, device=device)  # noqa: E731
+        self.mean, self.std = t(stats["action_mean"]), t(stats["action_std"])
+        self.qpos_mean, self.qpos_std = t(stats["qpos_mean"]), t(stats["qpos_std"])
 
     @torch.no_grad()
-    def predict(self, images: torch.Tensor) -> torch.Tensor:
-        """uint8 (B, cameras, H, W, 3) -> absolute targets (B, chunk, 7)."""
+    def predict(self, images: torch.Tensor, qpos: np.ndarray | None = None) -> torch.Tensor:
+        """uint8 (B, cameras, H, W, 3) [+ simulator qpos for the reference run] -> absolute
+        targets (B, chunk, 7)."""
         x = images.permute(0, 1, 4, 2, 3).float() / 255.0  # upstream: (B, cam, C, H, W) in [0, 1]
-        qpos = torch.zeros(x.shape[0], STATE_DIM, device=self.device)  # R3: no robot state
-        a_hat = self.policy(qpos, x) * self.std + self.mean
+        if self.uses_robot_state:
+            state = torch.as_tensor(robot_state(qpos, True), device=self.device)
+        else:
+            state = torch.zeros(x.shape[0], STATE_DIM, device=self.device)  # R3
+        state = (state - self.qpos_mean) / self.qpos_std  # upstream normalization
+        a_hat = self.policy(state, x) * self.std + self.mean
         return a_hat[..., :ACTION_DIM]

@@ -17,17 +17,17 @@ import numpy as np
 from action_free.collect import make_env
 
 
-def episode_object(episode_path: Path) -> tuple[str, str]:
-    """Environment name and object of an episode, read from its directory's manifest."""
-    manifest = json.loads((Path(episode_path).parent / "manifest.json").read_text())
-    return manifest["config"]["env_name"], manifest["config"]["object_name"]
+def episode_object(episode_path: Path) -> tuple[str, str, str]:
+    """Environment name, object and scene of an episode, from its directory's manifest."""
+    cfg = json.loads((Path(episode_path).parent / "manifest.json").read_text())["config"]
+    return cfg["env_name"], cfg["object_name"], cfg.get("scene", "default")
 
 
-def replay(episode: dict, env_name: str, object_name: str) -> dict:
+def replay(episode: dict, env_name: str, object_name: str, scene: str = "default") -> dict:
     """Step the recorded actions from the recorded seed; return replayed arrays and checks."""
     seed = int(episode["seed"])
     actions = np.asarray(episode["actions"])
-    env = make_env(env_name, object_name)
+    env = make_env(env_name, object_name, scene=scene)
     np.random.seed(seed)  # Same global RNG state as during collection.
     ob, info = env.reset(seed=seed)
     frames, qpos, success, terminated_at = [ob], [], False, None

@@ -28,7 +28,7 @@ def main() -> None:
     a = p.parse_args()
 
     episode = dict(np.load(a.episode))
-    env_name, object_name = episode_object(a.episode)
+    env_name, object_name, scene = episode_object(a.episode)
     recorded = np.stack([tile(o) for o in episode["observations"]])
     out = a.out or Path("outputs/replay") / f"{a.episode.parent.name}_{a.episode.stem}.mp4"
     print(
@@ -40,7 +40,7 @@ def main() -> None:
         print(f"video -> {write_video(recorded, out, a.fps)}")
         return
 
-    result = replay(episode, env_name, object_name)
+    result = replay(episode, env_name, object_name, scene)
     replayed = np.stack([tile(o) for o in result["frames"]])
     gap = np.full((len(recorded), 6, recorded.shape[2], 3), 255, dtype=np.uint8)
     print(f"video -> {write_video(np.concatenate([recorded, gap, replayed], axis=1), out, a.fps)}")

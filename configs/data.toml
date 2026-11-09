@@ -20,6 +20,10 @@ test = 1_000_000             # final rollouts: each selected checkpoint once, ev
 source = "data/source-n300-seed0"
 source_test = "data/source-test-n50-seed50000"
 A = "data/A-n200-seed100000"
+# ACT-like variants (--scene fixed_yaw --expert deterministic); same seed ranges, other scene.
+source_clean = "data/source-clean-n300-seed0"
+source_clean_test = "data/source-clean-test-n50-seed50000"
+A_clean = "data/A-clean-n200-seed100000"
 
 [protocol]
 policy = "original ACT (third_party/act, unmodified): configs/act_original.toml; robot state zeroed (R3)"

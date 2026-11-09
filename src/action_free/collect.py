@@ -30,6 +30,13 @@ import numpy as np
 
 from action_free.objects import env_kwargs, get_object
 
+# Scripted-expert variants: OCBench's default (deliberate detours with p = 0.1, random speed)
+# and a deterministic one (no detours, fixed speed), like ACT's scripted demonstrations.
+EXPERTS: dict[str, dict] = {
+    "ocbench": {},
+    "deterministic": {"p_mistake": 0.0, "speed_profile": (1.0, 1.0, 1.0)},
+}
+
 DEFAULT_ENV = "visual-block-cpu-lite-single-task1-v0"
 
 
@@ -44,33 +51,40 @@ class CollectConfig:
     terminate_at_success: bool = True
     max_attempts_factor: int = 3
     role: str = "train"  # "test": held-out collection, never trained on or selected with
+    scene: str = "default"  # objects.SCENES
+    expert: str = "ocbench"  # EXPERTS
 
 
-def make_env(env_name: str, object_name: str = "source", terminate_at_success: bool = True):
-    """Make a CPU OCBench environment showing the named object (see `objects.py`)."""
+def make_env(
+    env_name: str,
+    object_name: str = "source",
+    terminate_at_success: bool = True,
+    scene: str = "default",
+):
+    """Make a CPU OCBench environment showing the named object in a named scene."""
     import ocbench
 
     if "-cpu-" not in env_name:
         raise ValueError(f"Use a CPU environment (with '-cpu-'), got {env_name}.")
     return ocbench.make(
-        env_name, terminate_at_success=terminate_at_success, **env_kwargs(object_name)
+        env_name, terminate_at_success=terminate_at_success, **env_kwargs(object_name, scene)
     )
 
 
-def make_expert(env, env_name: str):
+def make_expert(env, env_name: str, expert: str = "ocbench"):
     name = env_name.removeprefix("visual-")
     if not name.startswith("block-"):
         raise ValueError(f"Only block environments are supported, got {env_name}.")
     from ocbench.oracles.controllers.block import BlockController
 
-    return BlockController(env=env)
+    return BlockController(env=env, **EXPERTS[expert])
 
 
-def run_episode(env, env_name: str, seed: int) -> tuple[dict, dict]:
+def run_episode(env, env_name: str, seed: int, expert: str = "ocbench") -> tuple[dict, dict]:
     """Roll out the scripted expert from the initial state fixed by `seed`."""
     np.random.seed(seed)  # The OCBench expert samples from NumPy's global RNG.
     ob, info = env.reset(seed=seed)
-    expert = make_expert(env, env_name)
+    expert = make_expert(env, env_name, expert)
     expert.reset(ob, info, transition_idx=0)
 
     steps: dict[str, list] = {
@@ -133,7 +147,7 @@ def collect(cfg: CollectConfig) -> dict:
     if any(out_dir.glob("episode_*.npz")):
         raise FileExistsError(f"{out_dir} already contains episodes; use a new directory.")
 
-    env = make_env(cfg.env_name, cfg.object_name, cfg.terminate_at_success)
+    env = make_env(cfg.env_name, cfg.object_name, cfg.terminate_at_success, cfg.scene)
     attempts, kept = [], []
     seed = cfg.base_seed
     max_attempts = cfg.num_episodes * cfg.max_attempts_factor
@@ -145,7 +159,7 @@ def collect(cfg: CollectConfig) -> dict:
                     f"Only {len(kept)} usable episodes after {max_attempts} "
                     "attempts; check the expert."
                 )
-            episode, meta = run_episode(env, cfg.env_name, seed)
+            episode, meta = run_episode(env, cfg.env_name, seed, cfg.expert)
             keep = meta["healthy"] and (meta["success"] or cfg.keep_failures)
             meta["kept"] = keep
             if keep:
@@ -173,7 +187,7 @@ def collect(cfg: CollectConfig) -> dict:
         "config": {k: str(v) if isinstance(v, Path) else v for k, v in asdict(cfg).items()},
         "object": {
             "description": get_object(cfg.object_name).description,
-            "env_kwargs": env_kwargs(cfg.object_name),
+            "env_kwargs": env_kwargs(cfg.object_name, cfg.scene),
         },
         "num_kept": len(kept),
         "num_attempts": len(attempts),

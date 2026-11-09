@@ -137,6 +137,7 @@ def prepare(
     folder: str,
     sizes: list[int],
     exclude_detours: bool,
+    use_robot_state: bool,
     model_repo: str | None,
     card: str,
 ) -> dict:
@@ -162,9 +163,11 @@ def prepare(
             dropped = detour_files(source)
             files = [f for f in files if f.name not in dropped]
             tag += "-nodetours"
+        if use_robot_state:
+            tag += "-state"
         out = local / "act_hdf5" / folder / tag
         if not (out / "episodes.json").exists():
-            export(files, out)
+            export(files, out, use_robot_state=use_robot_state)
             data_volume.commit()
         exported[n] = {
             "dataset_dir": str(out),
@@ -196,10 +199,14 @@ def prepare(
 def train(cfg: dict, data: dict, run_path: str, seed: int, provenance: dict, model_repo):
     import json
     import os
+    import shutil
 
     from action_free.act_original import train as act_train
 
     data_volume.reload()
+    # Upstream reads every sample from disk; use the container's local disk, not the volume.
+    local_data = Path("/tmp/act_data")
+    shutil.copytree(data["dataset_dir"], local_data, dirs_exist_ok=True)
     out = Path("/outputs") / run_path
     out.mkdir(parents=True, exist_ok=True)
     (out / "provenance.json").write_text(json.dumps(provenance, indent=2))
@@ -216,7 +223,7 @@ def train(cfg: dict, data: dict, run_path: str, seed: int, provenance: dict, mod
             dir=str(out),
         )
     record = act_train(
-        data["dataset_dir"],
+        local_data,
         out,
         data["num_episodes"],
         seed,
@@ -303,8 +310,10 @@ def main(
     card = MODEL_CARD.format(
         repo=repo, dataset=hub["dataset"], revision=hub["revision"], config=config
     )
-    exclude = cfg.get("exclude_detours", False)
-    exported = prepare.remote(hub["dataset"], hub["revision"], folder, sizes, exclude, repo, card)
+    exclude, state = cfg.get("exclude_detours", False), cfg.get("use_robot_state", False)
+    exported = prepare.remote(
+        hub["dataset"], hub["revision"], folder, sizes, exclude, state, repo, card
+    )
     runs = []
     for n in sizes:
         for s in (int(x) for x in seeds.split(",")):

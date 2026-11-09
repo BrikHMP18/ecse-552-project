@@ -264,7 +264,7 @@ def test_original_act_trains_and_loads(tmp_path):
     export(sorted(data.glob("episode_*.npz")), tmp_path / "act")
     cfg = {"num_epochs": 2, "batch_size": 2, "lr": 1e-5, "kl_weight": 10, "chunk_size": 5,
            "hidden_dim": 64, "dim_feedforward": 64}  # fmt: skip
-    record = train(tmp_path / "act", tmp_path / "run", 10, 0, cfg)
+    record = train(tmp_path / "act", tmp_path / "run", 10, 0, {**cfg, "use_robot_state": True})
     run = tmp_path / "run"
     for name in ("policy_best.ckpt", "policy_last.ckpt", "dataset_stats.pkl", "act_run.json"):
         assert (run / name).exists(), name
@@ -272,7 +272,8 @@ def test_original_act_trains_and_loads(tmp_path):
     assert len(json.loads((run / "history.json").read_text())) == 2
     policy = ActPolicy(run / "policy_last.ckpt", torch.device("cuda"))
     images = torch.randint(0, 255, (1, 3, 32, 32, 3), dtype=torch.uint8, device="cuda")
-    assert policy.predict(images).shape == (1, 5, 7)
+    assert policy.uses_robot_state  # robot-state reference path
+    assert policy.predict(images, np.zeros(21)).shape == (1, 5, 7)
 
 
 def test_detour_files_reads_the_annotations(tmp_path):
@@ -288,3 +289,40 @@ def test_detour_files_reads_the_annotations(tmp_path):
             row = {k: 0.0 for k in FIELDS if k.startswith(("cube_", "arm_"))}
             w.writerow({**row, "file": f"episode_{i:05d}.npz", "num_detours": int(i == 2)})
     assert detour_files(tmp_path) == {"episode_00002.npz"}
+
+
+def test_fixed_yaw_scene_and_deterministic_expert():
+    from action_free.initial_states import current
+
+    yaws = {}
+    for scene in ("default", "fixed_yaw"):
+        env = make_env(STATE_ENV, scene=scene)
+        yaws[scene] = []
+        for seed in range(10):
+            env.reset(seed=seed)
+            yaws[scene].append(current(env)["cube_yaw_deg"])
+        env.close()
+    assert all(abs(y) < 1e-6 for y in yaws["fixed_yaw"])
+    assert max(yaws["default"]) - min(yaws["default"]) > 30  # stock behaviour unchanged
+    env = make_env(STATE_ENV, scene="fixed_yaw")
+    metas = [run_episode(env, STATE_ENV, s, expert="deterministic")[1] for s in range(5)]
+    env.close()
+    assert all(m["num_detours"] == 0 for m in metas)
+    assert len({round(m["speed"], 6) for m in metas}) == 1  # fixed speed profile
+
+
+def test_export_with_robot_state(tmp_path):
+    import h5py
+
+    from action_free.act_original import export
+    from action_free.actions import gripper_opening
+
+    data = _fake_image_collection(tmp_path / "data", num_episodes=1)
+    f = sorted(data.glob("episode_*.npz"))
+    export(f, tmp_path / "act", use_robot_state=True)
+    ep = np.load(f[0])
+    with h5py.File(tmp_path / "act" / "episode_0.hdf5") as h:
+        q = h["observations/qpos"][()]
+    np.testing.assert_allclose(q[:, :6], ep["qpos"][:, :6])
+    np.testing.assert_allclose(q[:, 6], gripper_opening(ep["qpos"]), rtol=1e-6)
+    assert not q[:, 7:].any()

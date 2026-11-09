@@ -1,0 +1,21 @@
+# Reference only (breaks R3): act_clean.toml with robot state as input, like ACT itself.
+# Measures what images-only costs; never part of the method comparison. ACT-like data: cube yaw fixed at 0 (scene "fixed_yaw") and a
+# deterministic expert (no deliberate detours, fixed speed), like ACT's scripted sim demos.
+
+data_dir = "data/source-clean-n300-seed0"   # --scene fixed_yaw --expert deterministic
+num_episodes = 300                    # R2 (docs/experiments/act_baseline_a.md); sweeps override it
+exclude_detours = false               # true: drop demos with deliberate expert detours
+use_robot_state = true                # arm joints and gripper opening as policy input
+
+num_epochs = 2000      # README value (one epoch = one sampled step per training episode)
+batch_size = 8
+lr = 1e-5
+kl_weight = 10
+chunk_size = 20        # README: 100 at 50 Hz = 2 s; same 2 s horizon at our 10 Hz
+hidden_dim = 512
+dim_feedforward = 3200
+# Fixed in upstream code: ResNet-18, 4 encoder / 7 decoder layers, 8 heads, latent 32,
+# lr_backbone 1e-5, weight decay 1e-4, upstream's random 80/20 episode split (seed 1).
+
+execution = "ensemble:0.01"   # evaluation: ACT's temporal ensembling (k = 0.01)
+wandb_project = "ecse552"

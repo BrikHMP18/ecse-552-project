@@ -31,6 +31,11 @@ SCENE_KWARGS: dict = {
     # Every episode starts from the same arm pose: effector (x, y, z) in m and yaw, pointing down.
     "arm_init_pose": (0.35, 0.0, 0.30, 0.0),
 }
+# Named scene variants. "fixed_yaw" keeps every cube at yaw 0, like ACT's simulated tasks.
+SCENES: dict[str, dict] = {
+    "default": SCENE_KWARGS,
+    "fixed_yaw": {**SCENE_KWARGS, "object_yaw_range": (0.0, 0.0)},
+}
 
 
 @dataclass(frozen=True)
@@ -54,9 +59,11 @@ OBJECTS: dict[str, ObjectSpec] = {
 }
 
 
-def env_kwargs(name: str) -> dict:
-    """OCBench environment arguments for an object: the shared scene plus the object."""
-    return {**SCENE_KWARGS, **get_object(name).env_kwargs}
+def env_kwargs(name: str, scene: str = "default") -> dict:
+    """OCBench environment arguments for an object: a named scene plus the object."""
+    if scene not in SCENES:
+        raise KeyError(f"Unknown scene {scene!r}; choose from {sorted(SCENES)}.")
+    return {**SCENES[scene], **get_object(name).env_kwargs}
 
 
 def get_object(name: str) -> ObjectSpec:

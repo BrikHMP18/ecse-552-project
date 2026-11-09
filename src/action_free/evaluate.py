@@ -57,6 +57,7 @@ class EvalConfig:
     video_episodes: int = 0  # write MP4s of the first N episodes
     out_dir: str | None = None
     execution: str = DEFAULT_EXECUTION  # "chunk", "replan:N" or "ensemble:M"
+    scene: str | None = None  # default: the scene the policy was trained in
     seeds: list[int] | None = None  # explicit seeds instead of base_seed + i
 
 
@@ -114,7 +115,10 @@ def rollout(
         if kind == "ensemble" or not queue:
             t0 = time.perf_counter()
             images = torch.from_numpy(np.ascontiguousarray(ob)[None]).to(device)
-            pred = policy.predict(images)[0].float().cpu().numpy()
+            if getattr(policy, "uses_robot_state", False):  # reference run only (not R3)
+                pred = policy.predict(images, u._data.qpos.copy())[0].float().cpu().numpy()
+            else:
+                pred = policy.predict(images)[0].float().cpu().numpy()
             if device.type == "cuda":
                 torch.cuda.synchronize()
             latencies.append(time.perf_counter() - t0)
@@ -160,11 +164,13 @@ def _git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
 
 
-def compare_to_training(train_data: dict | None, object_name: str, episodes: list[dict]) -> dict:
+def compare_to_training(
+    train_data: dict | None, object_name: str, episodes: list[dict], scene_name: str = "default"
+) -> dict:
     """Mark each episode's start against the training distribution; summarize differences."""
     if not train_data:
         return {"note": "checkpoint has no training-data description"}
-    scene = _json(env_kwargs(object_name))
+    scene = _json(env_kwargs(object_name, scene_name))
     train_scene = train_data.get("scene") or {}
     diffs = {
         k: {"train": train_scene.get(k), "eval": scene.get(k)}
@@ -204,7 +210,8 @@ def compare_to_training(train_data: dict | None, object_name: str, episodes: lis
 def evaluate(cfg: EvalConfig, log=print) -> dict:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     policy = load_policy(cfg.checkpoint, device)
-    env = make_env(cfg.env_name, cfg.object_name)
+    scene = cfg.scene or (policy.run.get("data") or {}).get("scene_name") or "default"
+    env = make_env(cfg.env_name, cfg.object_name, scene=scene)
     out = Path(cfg.out_dir) if cfg.out_dir else None
     if out:
         out.mkdir(parents=True, exist_ok=True)
@@ -236,16 +243,18 @@ def evaluate(cfg: EvalConfig, log=print) -> dict:
 
     lat = np.concatenate([e["latencies_s"] for e in episodes]) * 1000
     run = policy.run
-    distribution = compare_to_training(run.get("data"), cfg.object_name, episodes)
+    distribution = compare_to_training(run.get("data"), cfg.object_name, episodes, scene)
     summary = {
         "config": asdict(cfg),
         "checkpoint_epoch": checkpoint_epoch(cfg.checkpoint, run),
         "action_mode": policy.action_mode,
         "execution": cfg.execution,
+        "scene": scene,
+        "uses_robot_state": bool(getattr(policy, "uses_robot_state", False)),
         "provenance": {
             "project_commit": _git("rev-parse", "HEAD"),
             "ocbench_commit": _git("-C", "third_party/ocbench", "rev-parse", "HEAD"),
-            "env_kwargs": _json(env_kwargs(cfg.object_name)),
+            "env_kwargs": _json(env_kwargs(cfg.object_name, scene)),
             "train_provenance": run.get("provenance"),
         },
         "distribution": distribution,

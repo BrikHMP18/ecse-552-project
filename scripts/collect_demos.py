@@ -16,8 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from action_free.collect import DEFAULT_ENV, CollectConfig, collect
-from action_free.objects import OBJECTS
+from action_free.collect import DEFAULT_ENV, EXPERTS, CollectConfig, collect
+from action_free.objects import OBJECTS, SCENES
 
 
 def git_rev(path: str = ".") -> str:
@@ -42,6 +42,8 @@ def main() -> None:
         action="store_true",
         help="Keep healthy but unsuccessful episodes (default: retry next seed).",
     )
+    p.add_argument("--scene", default="default", choices=sorted(SCENES))
+    p.add_argument("--expert", default="ocbench", choices=sorted(EXPERTS))
     p.add_argument(
         "--role",
         choices=("train", "test"),
@@ -65,6 +67,8 @@ def main() -> None:
         keep_failures=a.keep_failures,
         terminate_at_success=not a.no_terminate_at_success,
         role=a.role,
+        scene=a.scene,
+        expert=a.expert,
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)

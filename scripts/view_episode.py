@@ -68,9 +68,9 @@ def main() -> None:
         files = [files[i] for i in a.episodes] if a.episodes else files
     else:
         files = [a.path]
-    env_name, object_name = episode_object(files[0])
+    env_name, object_name, scene = episode_object(files[0])
     # Same scene as the cameras see: no target overlay, no success recolouring.
-    env = make_env(env_name.removeprefix("visual-"), object_name)
+    env = make_env(env_name.removeprefix("visual-"), object_name, scene=scene)
     env.unwrapped._visualize_info = False
     u = env.unwrapped
     dt = u._control_timestep / a.speed

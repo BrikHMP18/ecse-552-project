@@ -55,7 +55,8 @@ def main() -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     policy = load_policy(str(a.checkpoint), device)
-    env = make_env(DEFAULT_ENV, a.object)
+    scene = (policy.run.get("data") or {}).get("scene_name") or "default"
+    env = make_env(DEFAULT_ENV, a.object, scene=scene)
     base = VALIDATION_BASE_SEED if a.seeds == "validation" else TEST_BASE_SEED
     episodes = []
     for i in range(a.num_episodes):
