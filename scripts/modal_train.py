@@ -195,6 +195,7 @@ def prepare(
     timeout=8 * 3600,
     memory=32768,
     secrets=secrets,
+    nonpreemptible=True,  # upstream ACT cannot resume: a preemption restarts the run from zero
 )
 def train(cfg: dict, data: dict, run_path: str, seed: int, provenance: dict, model_repo):
     import json

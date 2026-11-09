@@ -334,6 +334,8 @@ class ActPolicy:
         targets (B, chunk, 7)."""
         x = images.permute(0, 1, 4, 2, 3).float() / 255.0  # upstream: (B, cam, C, H, W) in [0, 1]
         if self.uses_robot_state:
+            if qpos is None:
+                raise ValueError("This policy was trained with robot state: pass qpos.")
             state = torch.as_tensor(robot_state(qpos, True), device=self.device)
         else:
             state = torch.zeros(x.shape[0], STATE_DIM, device=self.device)  # R3

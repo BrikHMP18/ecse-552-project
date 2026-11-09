@@ -71,6 +71,9 @@ def load_policy(path: str, device: torch.device):
 def checkpoint_epoch(path: str, run: dict) -> int:
     """Training epoch of an upstream checkpoint file."""
     name = Path(path).stem
+    selection = Path(path).parent / "selection.json"
+    if name == "selected" and selection.exists():
+        return int(json.loads(selection.read_text())["selected_epoch"])
     if name == "policy_best":
         return int(run.get("best_epoch", -1))
     if name == "policy_last":
@@ -218,8 +221,12 @@ def evaluate(cfg: EvalConfig, log=print) -> dict:
 
     # Warm-up (cuDNN autotuning, allocator) so latencies reflect steady state.
     ob, _ = env.reset(seed=cfg.base_seed)
+    state = env.unwrapped._data.qpos.copy() if getattr(policy, "uses_robot_state", False) else None
     for _ in range(5):
-        policy.predict(torch.from_numpy(ob[None]).to(device))
+        if state is None:
+            policy.predict(torch.from_numpy(ob[None]).to(device))
+        else:
+            policy.predict(torch.from_numpy(ob[None]).to(device), state)
 
     seeds = cfg.seeds or [cfg.base_seed + i for i in range(cfg.num_episodes)]
     episodes = []

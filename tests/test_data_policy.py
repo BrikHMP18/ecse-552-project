@@ -274,6 +274,8 @@ def test_original_act_trains_and_loads(tmp_path):
     images = torch.randint(0, 255, (1, 3, 32, 32, 3), dtype=torch.uint8, device="cuda")
     assert policy.uses_robot_state  # robot-state reference path
     assert policy.predict(images, np.zeros(21)).shape == (1, 5, 7)
+    with pytest.raises(ValueError, match="robot state"):
+        policy.predict(images)
 
 
 def test_detour_files_reads_the_annotations(tmp_path):
