@@ -36,4 +36,4 @@ r2_rule = "smallest of 100, 200, 300 source demos whose selected checkpoint reac
 [hub]
 # Public Hugging Face copy of the collections above; training downloads this exact revision.
 dataset = "Autobrik/ecse552-ocbench-block"
-revision = "aa4e3eecc9b7266f561923be09f848c63cbe3088"
+revision = "3d0229e65911bc561020a3597ddc7dfaed01fa7c"

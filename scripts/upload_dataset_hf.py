@@ -45,8 +45,8 @@ and evaluation: those collections stand in for action-free videos.
 
 ## Collections
 
-| Folder | Object | Episodes | Seeds | Expert success | Transitions | Mean length | Collected at |
-|---|---|---:|---|---:|---:|---:|---|
+| Folder | Object | Scene / expert | Episodes | Seeds | Expert success | Transitions | Mean length | Code |
+|---|---|---|---:|---|---:|---:|---:|---|
 {rows}
 
 `source` is the labeled cube; target A changes only the cube colour. The same seed gives
@@ -62,11 +62,13 @@ the same initial cube and arm state for every object.
   Success requires the whole cube inside the square, resting on the table, released and
   still for 1 s; episodes stop at success.
 - Initial state: the cube in a 20 x 20 cm area beside the goal (x 0.32-0.52 m,
-  y 0.15-0.35 m, uniform yaw); the arm always starts from the same pose (effector at
-  (0.35, 0, 0.30) m, yaw 0). Stock OCBench samples both much more widely.
+  y 0.15-0.35 m); the arm always starts from the same pose (effector at (0.35, 0, 0.30) m,
+  yaw 0). Scene `default`: uniform cube yaw; `fixed_yaw`: yaw 0, like ACT's simulated tasks.
+- Expert `ocbench`: OCBench's scripted expert, with deliberate mistakes (`p_mistake` = 0.1
+  per subgoal: some episodes first carry the cube to a random spot, `num_detours`) and a
+  random speed; `deterministic`: no mistakes, fixed speed. The `clean` folders use
+  `fixed_yaw` + `deterministic`.
 - Only successful expert episodes are kept; failed seeds are skipped (see `manifest.json`).
-- The OCBench expert makes deliberate mistakes (`p_mistake` = 0.1 per subgoal): some
-  episodes first carry the cube to a random spot, then pick it up again (`num_detours`).
 
 ## Files
 
@@ -130,9 +132,10 @@ def collection_row(d: Path) -> tuple[str, str]:
     row = (
         f"| `{d.name}/` | {m['config']['object_name']}: {m['object']['description']}"
         f"{' (held-out test)' if m['config'].get('role') == 'test' else ''} "
+        f"| {m['config'].get('scene', 'default')} / {m['config'].get('expert', 'ocbench')} "
         f"| {m['num_kept']} | {min(seeds)}-{max(seeds)} | {m['expert_success_rate']:.1%} "
         f"| {m['total_transitions']} | {m['mean_length']:.1f} "
-        f"| [`{prov['project_commit'][:7]}`]({PROJECT}/commit/{prov['project_commit']}) |"
+        f"| `{prov['project_commit'][:7]}` |"
     )
     return row, prov["project_commit"]
 
