@@ -12,10 +12,12 @@ trains on both. Plan, methods (a)–(f), requirements R1–R6: [proposal](docs/p
 
 ## Status (9 November 2026)
 
-- Data published: 300 source demos, 50 held-out source test demos, 200 target-A videos.
-- Baselines use the **original ACT** ([`third_party/act`](https://github.com/tonyzhaozh/act),
-  unmodified) through `src/action_free/act_original.py`. A first sweep with our own ACT
-  reimplementation (now removed) is in [docs/experiments/act_baseline_a.md](docs/experiments/act_baseline_a.md).
+- Data published: source, held-out source test and target-A collections, each in two
+  variants: `default` (random cube yaw, OCBench expert) and ACT-like `clean` (fixed yaw,
+  deterministic expert).
+- Baseline (a) with the **original ACT** (`third_party/act`, unmodified), 300 demos, seed 0:
+  **99% on the source cube with images only on `clean` data**, 53% on `default`; 0–7% on
+  target A. Results: [docs/experiments/act_original.md](docs/experiments/act_original.md).
 - Not yet: IDM (`idm.py`), DANN, targets B–D.
 
 ## Setup
@@ -96,7 +98,7 @@ only (R1); simulator state is never a model input (R3).
 
 | Step | Owner |
 |---|---|
-| Baseline (a) with original ACT: smoke, 3 seeds at 300 demos, select, test on source and A | Brik |
+| Baseline (a): choose data (`clean` recommended), R2 sweep 100/200, 3 seeds, test on source and A | Brik |
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); pseudo-labels for (b) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
 | Oracle (d) and augmentation (e) with original ACT | Gonzalo |

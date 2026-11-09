@@ -13,3 +13,4 @@ deliverable must match this log.
 The proposal's disclosure also names ChatGPT (literature search, prose). Earlier per-session
 entries were condensed into the row above when the repository history was reset (9 November
 2026); add a new row for each later material use.
+| 2026-11-09 | Brik | Claude Code | Overnight run Brik approved: ACT-like data variant (fixed cube yaw, deterministic expert) and a robot-state reference option; three original-ACT runs on Modal; validation selection, tests, failure diagnosis, learning curves and write-up | `third_party/ocbench` (fork `54783cb`), `src/action_free/`, `configs/`, `scripts/`, `docs/experiments/act_original.md`, HF `Autobrik/ecse552-act-original`, `-act-clean`, `-act-clean-proprio` | Numbers come from the logged rollouts (selection.json, results.json); one training seed per run, so the conclusions are provisional. |
