@@ -45,12 +45,13 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
   and object; all six collections were re-recorded with the same seeds. Published: source, held-out source
   test and targets A, B, C and D (see [Objects](#objects)). The `stochastic` variant (stock OCBench: random yaw, detours, random
   speed) is kept for reference.
-- Baseline (a) with the **original ACT** (`third_party/act`, unmodified), 300 demos, seed 0,
-  on the earlier data (grasp turned in 30% of cube episodes):
-  **99% on the source cube with images only**, 7% on target A (stochastic data: 53% and 0%).
-  Results: [docs/experiments/act_original.md](docs/experiments/act_original.md).
-- Running: baseline (a) seeds 0–2 and oracle (d) seed 0 for A, B, C on the re-recorded data.
-- Not yet: IDM (`idm.py`), DANN, augmentation (e).
+- Baseline (a), **original ACT** (`third_party/act`, unmodified), images only, 300 demos,
+  3 seeds, 100 test rollouts per object (mean ± std): **source 90.7 ± 12.1%**, A 0.3 ± 0.6%,
+  B 82.3 ± 16.0%, C 59.0 ± 20.0%, D 0%. The gap is colour (A, D), not shape (B, C).
+- Oracle (d), seed 0 (provisional): A 70%, B 86%, C 3% (broken, not diagnosed).
+  Results: [docs/experiments/baselines.md](docs/experiments/baselines.md); earlier data:
+  [act_original.md](docs/experiments/act_original.md).
+- Not yet: IDM (`idm.py`), DANN, augmentation (e), oracle seeds 1 and 2 and target D.
 
 ## Setup
 
@@ -148,11 +149,10 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 
 | Step | Owner |
 |---|---|
-| Baseline (a): seeds 1 and 2 at 300 demos, then the test on source and A | Brik |
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d): `configs/act_oracle_A.toml`; augmentation (e) with original ACT | Gonzalo |
-| Baseline (a) tested on targets B, C, D | Brik |
+| Oracle (d): find why C fails (3%); then seeds 1 and 2 for A, B, C, and D | Brik |
+| Augmentation (e) with original ACT, 3 seeds, every object | Gonzalo |
 
 ## Collaborating
 
