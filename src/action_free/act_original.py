@@ -20,6 +20,7 @@ run it on our data, from the outside:
    - all episodes have one length: `get_norm_stats` is replaced by the same statistics over
      concatenated steps, and each sampled action sequence is padded to `MAX_EPISODE_LEN` with
      `is_pad = True`, the mask upstream already applies.
+   Method (e) adds image augmentation to the training samples there (`augment_images`).
 3. `train`: registers our task in upstream `constants`, records the train/validation episodes
    that upstream's own random 80/20 split picks, mirrors loss histories to JSON (and W&B),
    and calls upstream `imitate_episodes.main` with ACT's arguments.
@@ -90,6 +91,22 @@ def _cli(a: dict) -> list[str]:
         else:
             out += [f"--{k}", str(v)]
     return out
+
+
+# Method (e): image augmentation of the training samples (configs/act_augment.toml).
+AUGMENT = {"brightness": 0.3, "contrast": 0.3, "saturation": 0.3, "hue": 0.5, "shift_px": 4}
+
+
+def augment_images(images: torch.Tensor) -> torch.Tensor:
+    """Colour jitter (hue over the full circle) and a shift of up to `shift_px` pixels, the same
+    for the cameras of one sample. `images`: (cameras, 3, H, W) in [0, 1]."""
+    from torchvision.transforms import ColorJitter
+
+    jitter = ColorJitter(*(AUGMENT[k] for k in ("brightness", "contrast", "saturation", "hue")))
+    s, (h, w) = AUGMENT["shift_px"], images.shape[-2:]
+    padded = torch.nn.functional.pad(jitter(images), (s, s, s, s), mode="replicate")
+    dy, dx = torch.randint(0, 2 * s + 1, (2,)).tolist()
+    return padded[..., dy : dy + h, dx : dx + w]
 
 
 def robot_state(qpos: np.ndarray, use_robot_state: bool) -> np.ndarray:
@@ -207,6 +224,8 @@ def _patch_variable_length(utils) -> None:
 
         def __getitem__(self, index):
             image, qpos, action, is_pad = super().__getitem__(index)
+            if getattr(self, "augment", False):  # set on the training set only (`train`)
+                image = augment_images(image)
             pad = MAX_EPISODE_LEN - action.shape[0]
             if pad > 0:
                 action = torch.cat([action, torch.zeros(pad, action.shape[1])])
@@ -305,6 +324,7 @@ def train(
 
     def load_data(*args, **kwargs):
         out = original_load_data(*args, **kwargs)
+        out[0].dataset.augment = bool(cfg.get("augment", False))  # before workers start
         split["train"] = sorted(int(i) for i in out[0].dataset.episode_ids)
         split["val"] = sorted(int(i) for i in out[1].dataset.episode_ids)
         return out
@@ -343,6 +363,7 @@ def train(
         "act_args": args,
         "chunk_size": cfg["chunk_size"],
         "use_robot_state": bool(cfg.get("use_robot_state", False)),
+        "augment": AUGMENT if cfg.get("augment", False) else None,
         "num_episodes": num_episodes,
         "split": split,  # upstream's own random 80/20 split of episode indices
         "best_epoch": best["epoch"],

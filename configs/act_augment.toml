@@ -1,0 +1,20 @@
+# Method (e): act_deterministic.toml (source only) with image augmentation of the training
+# samples: colour jitter with hue over the full circle and a shift of up to 4 pixels, the
+# same for the three cameras of a sample (`AUGMENT` in src/action_free/act_original.py).
+# Validation loss and rollouts use the images as they are.
+
+data_dir = "data/source-deterministic-n300-seed0"
+num_episodes = 300
+exclude_detours = false
+augment = true
+
+num_epochs = 2000
+batch_size = 8
+lr = 1e-5
+kl_weight = 10
+chunk_size = 20
+hidden_dim = 512
+dim_feedforward = 3200
+
+execution = "ensemble:0.01"
+wandb_project = "ecse552"

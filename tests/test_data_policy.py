@@ -209,6 +209,21 @@ def test_act_config_matches_upstream_cli():
     assert parsed.chunk_size == 20 and parsed.policy_class == "ACT"
 
 
+def test_augmentation_changes_colour_alike_in_every_camera():
+    from action_free.act_original import augment_images
+
+    torch.manual_seed(0)
+    red = torch.zeros(3, 3, 32, 32)
+    red[:, 0] = 1.0
+    hues = set()
+    for _ in range(20):
+        out = augment_images(red)
+        assert out.shape == red.shape and 0 <= out.min() and out.max() <= 1
+        assert torch.allclose(out[0], out[1]) and torch.allclose(out[0], out[2])
+        hues.add(int(out[0, :, 0, 0].argmax()))
+    assert hues == {0, 1, 2}  # red also becomes green and blue
+
+
 def test_export_writes_act_layout(tmp_path):
     import h5py
 
