@@ -39,4 +39,4 @@ selected checkpoint).
 
 ## Results
 
-Pending: launched on 10 November 2026.
+Pending: not trained yet.
