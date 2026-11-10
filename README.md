@@ -40,18 +40,33 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 
 ## Status (10 November 2026)
 
-- **Project data: `deterministic` demonstrations** (cube yaw fixed at 0; expert without
-  detours, at fixed speed and, since 10 November, without 90° grasp turns), for every method
-  and object; all six collections were re-recorded with the same seeds. Published: source, held-out source
-  test and targets A, B, C and D (see [Objects](#objects)). The `stochastic` variant (stock OCBench: random yaw, detours, random
-  speed) is kept for reference.
-- Baseline (a), **original ACT** (`third_party/act`, unmodified), images only, 300 demos,
-  3 seeds, 100 test rollouts per object (mean ± std): **source 90.7 ± 12.1%**, A 0.3 ± 0.6%,
-  B 82.3 ± 16.0%, C 59.0 ± 20.0%, D 0%. The gap is colour (A, D), not shape (B, C).
-- Oracle (d), seed 0 (provisional): A 70%, B 86%, C 3% (grasps 1 cm off-centre; a 7 cm block allows 0.75 cm).
-  Results: [docs/experiments/baselines.md](docs/experiments/baselines.md); earlier data:
-  [act_original.md](docs/experiments/act_original.md).
-- Not yet: IDM (`idm.py`), DANN, augmentation (e), oracle seeds 1 and 2 and target D.
+| Method | State | Where |
+|---|---|---|
+| Data: source and targets A, B, C, D | Done | [Objects](#objects) |
+| (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
+| (d) Oracle: source + target with true actions | Seed 0 done for A, B, C; seeds 1, 2 next | [baselines.md](docs/experiments/baselines.md) |
+| (e) Augmentation: source only, colour jitter | Implemented, not trained | [augmentation.md](docs/experiments/augmentation.md) |
+| (b) IDM, (c) DANN | Not started; interface fixed | [Pseudo-labels](#data-and-models), `configs/act_idm_A.toml` |
+
+Test success, 100 rollouts per object. Original ACT (`third_party/act`, unmodified), images
+only, 300 source demos.
+
+| Tested on | (a) Baseline, mean ± std of 3 seeds | (d) Oracle for that target, seed 0 |
+|---|---:|---:|
+| source (red cube) | 90.7 ± 12.1% | - |
+| A (blue cube) | 0.3 ± 0.6% | 70% |
+| B (red 9x6x6 block) | 82.3 ± 16.0% | 86% |
+| C (red 9x7x6 block) | 59.0 ± 20.0% | 3% |
+| D (blue 9x7x6 block) | 0% | not run |
+
+- **The gap is colour, not shape**: the baseline fails on the blue objects and transfers to
+  the red blocks. Target A is where (b) and (c) can show a gain.
+- **Oracle C fails**: it grasps 1 cm off-centre and a 7 cm block allows 0.75 cm; cause under
+  study ([baselines.md](docs/experiments/baselines.md), "Why oracle C fails").
+- Success varies a lot between seeds (source: 77%, 100%, 95%); the oracle has one seed.
+- Project data: the `deterministic` collections (cube yaw fixed at 0; expert without detours,
+  at fixed speed and without 90° grasp turns). The `stochastic` ones (stock OCBench) and the
+  results on earlier data ([act_original.md](docs/experiments/act_original.md)) are references.
 
 ## Setup
 
@@ -119,7 +134,7 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 |---|---|
 | Episodes (`.npz`) | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block) |
 | LeRobot copies (visualizer) | [source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A): data of 8 November, not yet refreshed; `scripts/upload_lerobot_hf.py` publishes one per collection (source, source-test, A–D) |
-| ACT checkpoints | [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic) (project data), [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
+| ACT checkpoints | (a) [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic); (d) [-act-oracle-A](https://huggingface.co/Autobrik/ecse552-act-oracle-A), [-B](https://huggingface.co/Autobrik/ecse552-act-oracle-B), [-C](https://huggingface.co/Autobrik/ecse552-act-oracle-C); references: [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
 | Training curves | W&B `mu-robotics/ecse552` |
 
 Each collection records every seed, the scene and the expert's deliberate detours
@@ -153,8 +168,8 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 |---|---|
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d): seeds 1 and 2 for A, B, C (is the C failure seed-specific?), then D | Brik |
-| Augmentation (e) with original ACT, 3 seeds, every object | Gonzalo |
+| Oracle (d): seeds 1 and 2 for A, B, C; diagnosis of C (`configs/act_only_C.toml`); then D | Brik |
+| Augmentation (e): train 3 seeds, test on every object (Brik); review the settings in [augmentation.md](docs/experiments/augmentation.md) (Gonzalo) | Brik, Gonzalo |
 
 ## Collaborating
 
@@ -169,7 +184,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C}.toml (d), act_idm_A.toml (b/c), references
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```
