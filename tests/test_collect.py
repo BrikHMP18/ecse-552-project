@@ -96,6 +96,24 @@ def test_expert_moves_the_blocks():
         env.close()
 
 
+def test_deterministic_expert_never_turns_the_first_grasp():
+    """Stock OCBench turns the cube grasp by 90 degrees in 30% of episodes; ours never does."""
+    from action_free.collect import make_expert
+
+    env = make_env(STATE_ENV)
+    for seed in range(10):
+        np.random.seed(seed)
+        ob, info = env.reset(seed=seed)
+        expert = make_expert(env, STATE_ENV)
+        expert.reset(ob, info, transition_idx=0)
+        for t in range(60):
+            ob, _, _, _, info = env.step(np.clip(expert.select_action(ob, info, t), -1, 1))
+            if info["privileged/block_0_pos"][2] > 0.04:  # lifted
+                break
+        assert abs(np.sin(info["proprio/effector_yaw"][0])) < 0.26  # within 15 degrees
+    env.close()
+
+
 def test_success_uses_the_block_size():
     """2 cm off the goal, the 6 cm cube is inside the 12 cm square; the 9 cm block is not."""
     inside = {}

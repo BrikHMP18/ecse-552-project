@@ -31,10 +31,11 @@ import numpy as np
 from action_free.objects import env_kwargs, get_object
 
 # Scripted experts. The project uses "deterministic" (no deliberate detours, fixed speed,
-# like ACT's scripted demonstrations); "stochastic" is stock OCBench's (detours with p = 0.1
-# per subgoal, random speed), kept for the reference data.
+# no 90-degree grasp turns, so cubes and blocks are grasped alike); "stochastic" is stock
+# OCBench's (detours with p = 0.1 per subgoal, random speed, turned grasps in 30% of cube
+# episodes), kept for the reference data. Both keep OCBench's small grasp jitter and retries.
 EXPERTS: dict[str, dict] = {
-    "deterministic": {"p_mistake": 0.0, "speed_profile": (1.0, 1.0, 1.0)},
+    "deterministic": {"p_mistake": 0.0, "speed_profile": (1.0, 1.0, 1.0), "grasp_turns": False},
     "stochastic": {},
 }
 
