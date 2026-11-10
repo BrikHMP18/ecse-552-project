@@ -92,6 +92,7 @@ only (R1); simulator state is never a model input (R3).
 | Topic | Decision | Proposal |
 |---|---|---|
 | Control | 10 Hz, at most 200 steps; ACT chunk 20 (2 s) | 50 Hz, chunk 25 |
+| Execution | temporal ensembling (ACT); open loop gives 41% vs 98% | chunks open loop |
 | Actions | absolute joint targets (ACT); OCBench deltas computed by the low-level controller | joint increments |
 | Goal / success | 12 cm gray square; cube inside, resting, released, still for 1 s | within 4 cm |
 | Initial state | cube in a 20 x 20 cm area, yaw fixed at 0; fixed arm pose | OCBench defaults |

@@ -34,12 +34,14 @@ def main() -> None:
         help="test: final numbers, used once per selected checkpoint; validation: decisions",
     )
     p.add_argument("--execution", default=DEFAULT_EXECUTION, help="chunk, replan:N or ensemble:M")
+    p.add_argument("--scene", default=None, help="Default: the scene the policy was trained in")
     p.add_argument("--video-episodes", type=int, default=0)
     p.add_argument("--out-dir", type=Path, default=None)
     a = p.parse_args()
 
     base_seed = TEST_BASE_SEED if a.seeds == "test" else VALIDATION_BASE_SEED
     suffix = "" if a.execution == DEFAULT_EXECUTION else "_" + a.execution.replace(":", "")
+    suffix += f"_{a.scene}" if a.scene else ""
     out = a.out_dir or a.checkpoint.parent / f"{a.seeds}_{a.object}{suffix}"
     s = evaluate(
         EvalConfig(
@@ -49,6 +51,7 @@ def main() -> None:
             base_seed=base_seed,
             video_episodes=a.video_episodes,
             execution=a.execution,
+            scene=a.scene,
             out_dir=str(out),
         )
     )
