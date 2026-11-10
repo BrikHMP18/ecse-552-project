@@ -22,13 +22,13 @@ repos `Autobrik/ecse552-act-deterministic` and `Autobrik/ecse552-act-oracle-{A,B
 
 ### Baseline (a): source only, 3 seeds
 
-| Test object | Seed 0 | Seed 1 | Seed 2 | Mean | Std | 95% CI (t, n = 3) |
+| Test object | Seed 0 | Seed 1 | Seed 2 | Mean | Std | 95% Wilson, 300 rollouts |
 |---|---:|---:|---:|---:|---:|---:|
-| source (red cube) | 77% | 100% | 95% | 90.7% | 12.1 | ± 30.1 |
-| A (blue cube) | 1% | 0% | 0% | 0.3% | 0.6 | ± 1.4 |
-| B (red 9x6x6 block) | 67% | 99% | 81% | 82.3% | 16.0 | ± 39.9 |
-| C (red 9x7x6 block) | 42% | 81% | 54% | 59.0% | 20.0 | ± 49.6 |
-| D (blue 9x7x6 block) | 0% | 0% | 0% | 0.0% | 0.0 | ± 0.0 |
+| source (red cube) | 77% | 100% | 95% | 90.7% | 12.1 | [86.8, 93.5] |
+| A (blue cube) | 1% | 0% | 0% | 0.3% | 0.6 | [0.1, 1.9] |
+| B (red 9x6x6 block) | 67% | 99% | 81% | 82.3% | 16.0 | [77.6, 86.2] |
+| C (red 9x7x6 block) | 42% | 81% | 54% | 59.0% | 20.0 | [53.4, 64.4] |
+| D (blue 9x7x6 block) | 0% | 0% | 0% | 0.0% | 0.0 | [0.0, 1.3] |
 
 ### Oracle (d): source + one target with true actions, seed 0 (provisional)
 
@@ -59,7 +59,7 @@ repos `Autobrik/ecse552-act-deterministic` and `Autobrik/ecse552-act-oracle-{A,B
 - **Oracle C fails at the grasp, by a lateral offset** (see below): 3% on C, below the
   baseline's 59%, and none of the 97 failures lifted the block. It is not an upper bound.
 - **High variance.** Source success goes from 77% to 100% across seeds, and between
-  checkpoints of one run (seed 1: 100% vs 21%). With 3 seeds the intervals are wide; compare
+  checkpoints of one run (seed 1: 100% vs 21%). The Wilson interval pools the three seeds' rollouts and does not include that spread; compare
   methods per seed and report the spread.
 
 ## Why oracle C fails
