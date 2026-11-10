@@ -56,13 +56,38 @@ repos `Autobrik/ecse552-act-deterministic` and `Autobrik/ecse552-act-oracle-{A,B
   (B 82%, C 59%). A and D are the targets where methods (b) and (c) can show a gain; B has
   little room (82% vs 86% oracle).
 - **The oracle works for A** (0.3% to 70%) at some cost on source (77%).
-- **Oracle C is broken, not an upper bound**: 3% on C, below the baseline's 59%, and none of
-  the 97 failures lifted the block. Not diagnosed. One hypothesis: the expert grasps C 2 cm
-  higher than the source cube, and the two red objects look alike, so the policy mixes the
-  two grasp heights. Check before running more oracle seeds for C or D.
+- **Oracle C fails at the grasp, by a lateral offset** (see below): 3% on C, below the
+  baseline's 59%, and none of the 97 failures lifted the block. It is not an upper bound.
 - **High variance.** Source success goes from 77% to 100% across seeds, and between
   checkpoints of one run (seed 1: 100% vs 21%). With 3 seeds the intervals are wide; compare
   methods per seed and report the spread.
+
+## Why oracle C fails
+
+Checked on 10 validation rollouts per case (seeds 900,000+): position of the gripper pinch
+point relative to the object centre when the gripper first closes. The gripper closes along
+y; the opening is 8.5 cm, so a 7 cm block leaves 0.75 cm per side and a 6 cm one 1.25 cm.
+
+| Policy (seed) | Object | y offset, mean ± std | Height above centre | Success |
+|---|---|---:|---:|---:|
+| Expert demos | C | 0.0 ± 0.1 cm | 1.5 cm | - |
+| Oracle C (0), selected | C | **+0.9 ± 0.3 cm** | 1.5 cm | 0/10 |
+| Oracle C (0), `policy_best` | C | +1.0 ± 0.4 cm | 1.5 cm | 0/10 |
+| Oracle C (0), selected | source | +1.1 ± 0.2 cm | 1.5 cm | 6/10 |
+| Oracle B (0) | B | +0.6 ± 0.3 cm | 0.9 cm | 9/10 |
+| Baseline (1) | C | +0.1 ± 0.4 cm | 0.1 cm | 8/10 |
+| Baseline (1) | source | -0.2 ± 0.3 cm | -0.7 cm | 10/10 |
+
+- Oracle C reaches the block at the right height but about 1 cm off-centre in y, more than
+  the 0.75 cm a 7 cm block allows: a finger lands on the block, the gripper closes empty and
+  pushes the block about 0.8 cm per attempt. The same offset on the source cube still fits
+  (6/10).
+- Both of its checkpoints have the offset, so selecting on target rollouts would not fix it.
+- It also uses C's grasp height on the source cube: it does not tell the two red objects apart.
+- The baseline is centred and grasps C like the cube (low), which works in 59% of tests.
+- Not known: why the oracles (C, and less so B) learn the offset, and whether it is this
+  seed. Training losses are normal (validation L1 0.059; baseline 0.062). Seeds 1 and 2
+  would tell; the 0.75 cm margin makes C and D sensitive to any policy.
 
 ## Limits
 

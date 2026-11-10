@@ -48,7 +48,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 - Baseline (a), **original ACT** (`third_party/act`, unmodified), images only, 300 demos,
   3 seeds, 100 test rollouts per object (mean ± std): **source 90.7 ± 12.1%**, A 0.3 ± 0.6%,
   B 82.3 ± 16.0%, C 59.0 ± 20.0%, D 0%. The gap is colour (A, D), not shape (B, C).
-- Oracle (d), seed 0 (provisional): A 70%, B 86%, C 3% (broken, not diagnosed).
+- Oracle (d), seed 0 (provisional): A 70%, B 86%, C 3% (grasps 1 cm off-centre; a 7 cm block allows 0.75 cm).
   Results: [docs/experiments/baselines.md](docs/experiments/baselines.md); earlier data:
   [act_original.md](docs/experiments/act_original.md).
 - Not yet: IDM (`idm.py`), DANN, augmentation (e), oracle seeds 1 and 2 and target D.
@@ -151,7 +151,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 |---|---|
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d): find why C fails (3%); then seeds 1 and 2 for A, B, C, and D | Brik |
+| Oracle (d): seeds 1 and 2 for A, B, C (is the C failure seed-specific?), then D | Brik |
 | Augmentation (e) with original ACT, 3 seeds, every object | Gonzalo |
 
 ## Collaborating
