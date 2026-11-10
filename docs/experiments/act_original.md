@@ -48,7 +48,7 @@ Failure modes on the source cube (100 validation rollouts of the selected checkp
    smooth: closed-loop selection matters, and 3 training seeds are needed.
 5. **R6 holds:** 10 ms per policy call (temporal ensembling queries every step).
 6. Operations: Modal preempted `act_clean` once; upstream ACT cannot resume, so the run
-   restarted from zero. Training containers are now non-preemptible.
+   restarted from zero (Modal does not offer non-preemptible GPU containers).
 
 ## Open decisions
 
