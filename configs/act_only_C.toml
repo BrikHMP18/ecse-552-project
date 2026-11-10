@@ -1,0 +1,19 @@
+# Diagnosis, not a method of the comparison: the original ACT on target C alone, with its true
+# actions and no source demos. Tells whether the oracle (d) for C fails because source and C
+# are trained together (docs/experiments/baselines.md, "Why oracle C fails"). Same settings
+# as act_deterministic.toml; with 200 episodes it takes 40% of the oracle's gradient steps.
+
+data_dir = "data/C-deterministic-n200-seed300000"
+num_episodes = 200
+exclude_detours = false
+
+num_epochs = 2000
+batch_size = 8
+lr = 1e-5
+kl_weight = 10
+chunk_size = 20
+hidden_dim = 512
+dim_feedforward = 3200
+
+execution = "ensemble:0.01"
+wandb_project = "ecse552"
