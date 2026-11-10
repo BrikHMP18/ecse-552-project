@@ -1,8 +1,9 @@
 """Train original-ACT baselines on Modal: one A10G container per (data size, seed).
 
-Data comes from the public Hugging Face dataset pinned in `configs/data.toml` ([hub]); the
-needed episodes are downloaded and exported once to ACT's HDF5 layout in the Modal volume
-`ecse552-data` (`act_original.export`). Each run trains upstream ACT
+Data comes from the public Hugging Face dataset pinned in `configs/data.toml` ([hub]): the
+source collection and the config's optional `[[targets]]` (stored actions for the oracle (d),
+pseudo-labels for (b)/(c)) are downloaded and exported once to ACT's HDF5 layout in the Modal
+volume `ecse552-data` (`act_original.export_dataset`). Each run trains upstream ACT
 (`act_original.train`) in `ecse552-outputs:/<config>/n<episodes>/seed<seed>` and pushes
 `policy_best.ckpt`, `policy_last.ckpt`, `dataset_stats.pkl`, `act_run.json`, `history.json`,
 the loss plots and `provenance.json` to the same path of a public Hugging Face model repo
@@ -13,6 +14,7 @@ volume (learning curves). Losses go to W&B through the Modal secret `wandb-secre
     modal run scripts/modal_train.py --smoke                     # 2 epochs, 10 demos, no push
     modal run --detach scripts/modal_train.py --num-episodes 300 --seeds 0
     modal run --detach scripts/modal_train.py --num-episodes 100,200,300 --seeds 0   # sweep
+    modal run --detach scripts/modal_train.py --config configs/act_oracle_A.toml --seeds 0  # (d)
 
 Checkpoint selection and evaluation run locally (`scripts/select_checkpoint.py`,
 `scripts/evaluate_policy.py`): they need the simulator.
@@ -85,7 +87,9 @@ ECSE 552 project *Learning to Manipulate a New Object from Action-Free Videos*
 ([code](https://github.com/BrikHMP18/ecse-552-project), config `{config}`, adapter
 `src/action_free/act_original.py`). Differences from ACT: images only (robot state is zeroed),
 our 7 action dimensions zero-padded to upstream's 14, variable-length episodes, chunk 20 at
-10 Hz (2 s, as ACT's 100 at 50 Hz). Actions are absolute joint targets.
+10 Hz (2 s, as ACT's 100 at 50 Hz). Actions are absolute joint targets. Runs on several
+collections (oracle (d), pseudo-labelled targets for (b)/(c)) list them in `act_run.json`
+(`data.collections`).
 
 Each `n<demos>/seed<k>/` holds one run: `policy_best.ckpt` (lowest validation loss),
 `policy_last.ckpt`, `selected.ckpt` and `selection.json` (the better of the two on source
@@ -134,47 +138,54 @@ def check() -> dict:
 def prepare(
     dataset: str,
     revision: str,
-    folder: str,
+    source: str,
     sizes: list[int],
+    targets: list[dict],
     exclude_detours: bool,
     use_robot_state: bool,
     model_repo: str | None,
     card: str,
 ) -> dict:
-    """Download the episodes once, export ACT HDF5 per data size; create the model repo."""
+    """Download the collections once, export ACT HDF5 per source size; create the model repo."""
     from huggingface_hub import HfApi, snapshot_download
 
-    from action_free.act_original import export
+    from action_free.act_original import export_dataset
     from action_free.data import detour_files, episode_files
 
     local = Path(f"/data/{dataset.replace('/', '__')}/{revision}")
     meta = ("manifest.json", "provenance.txt", "packages.txt", "initial_states.csv")
-    patterns = [f"{folder}/{n}" for n in meta]
-    patterns += [f"{folder}/episode_{i:05d}.npz" for i in range(max(sizes))]
+    patterns = []
+    for folder, n in [(source, max(sizes)), *((t["folder"], t["num_episodes"]) for t in targets)]:
+        patterns += [f"{folder}/{m}" for m in meta]
+        patterns += [f"{folder}/episode_{i:05d}.npz" for i in range(n)]
+    patterns += [f"{t['actions']}/*" for t in targets if t["actions"] != "true"]
     snapshot_download(
         dataset, repo_type="dataset", revision=revision, allow_patterns=patterns, local_dir=local
     )
-    source = local / folder
     exported = {}
     for n in sizes:
-        files = episode_files(source, n)
+        files = episode_files(local / source, n)
         tag = f"n{n}"
         if exclude_detours:
-            dropped = detour_files(source)
+            dropped = detour_files(local / source)
             files = [f for f in files if f.name not in dropped]
             tag += "-nodetours"
         if use_robot_state:
             tag += "-state"
-        out = local / "act_hdf5" / folder / tag
+        collections = [(files, None)]
+        for t in targets:
+            labels = None if t["actions"] == "true" else local / t["actions"]
+            collections.append((episode_files(local / t["folder"], t["num_episodes"]), labels))
+            tag += (
+                f"+{t['folder']}-n{t['num_episodes']}-{'true' if labels is None else labels.name}"
+            )
+        out = local / "act_hdf5" / source / tag
         if not (out / "episodes.json").exists():
-            export(files, out, use_robot_state=use_robot_state)
+            export_dataset(collections, out, use_robot_state=use_robot_state)
             data_volume.commit()
-        exported[n] = {
-            "dataset_dir": str(out),
-            "num_episodes": len(files),
-            "source_dir": str(source),
-        }
-        print(f"{tag}: {len(files)} episodes in {out}")
+        total = sum(len(c[0]) for c in collections)
+        exported[n] = {"dataset_dir": str(out), "num_episodes": total}
+        print(f"{tag}: {total} episodes in {out}")
     if model_repo:
         print(f"Hugging Face user: {_hf_whoami()}")
         api = HfApi()
@@ -228,7 +239,6 @@ def train(cfg: dict, data: dict, run_path: str, seed: int, provenance: dict, mod
         data["num_episodes"],
         seed,
         cfg,
-        source_dir=data["source_dir"],
         run_info={"provenance": provenance, "wandb_url": wandb_run.url if wandb_run else None},
         wandb_run=wandb_run,
     )
@@ -268,6 +278,12 @@ def _git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
 
 
+def _hub_path(p: str) -> str:
+    """A collection or labels folder as named in the dataset repository (locally under data/)."""
+    parts = Path(p).parts
+    return str(Path(*parts[1:])) if parts[:1] == ("data",) else str(p)
+
+
 @app.local_entrypoint()
 def main(
     config: str = "configs/act_deterministic.toml",
@@ -294,7 +310,15 @@ def main(
     if repo and dirty:
         raise SystemExit(f"Commit your changes before a run that publishes:\n{dirty}")
 
-    folder = Path(cfg["data_dir"]).name
+    source = _hub_path(cfg["data_dir"])
+    targets = [
+        {
+            "folder": _hub_path(t["dir"]),
+            "num_episodes": 10 if smoke else int(t["num_episodes"]),
+            "actions": "true" if t.get("actions", "true") == "true" else _hub_path(t["actions"]),
+        }
+        for t in cfg.get("targets", [])
+    ]
     provenance = {
         "project_commit": _git("rev-parse", "HEAD"),
         "project_dirty": bool(dirty),
@@ -303,7 +327,8 @@ def main(
         "config_file": config,
         "dataset": hub["dataset"],
         "dataset_revision": hub["revision"],
-        "dataset_folder": folder,
+        "dataset_folder": source,
+        "targets": targets,
         "gpu": GPU,
         "model_repo": repo,
     }
@@ -312,7 +337,7 @@ def main(
     )
     exclude, state = cfg.get("exclude_detours", False), cfg.get("use_robot_state", False)
     exported = prepare.remote(
-        hub["dataset"], hub["revision"], folder, sizes, exclude, state, repo, card
+        hub["dataset"], hub["revision"], source, sizes, targets, exclude, state, repo, card
     )
     runs = []
     for n in sizes:

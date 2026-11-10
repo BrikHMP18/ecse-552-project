@@ -48,6 +48,7 @@ uv run python scripts/upload_dataset_hf.py data/source-deterministic-n300-seed0 
 # Train original ACT on Modal (pushes checkpoints to HF)
 modal run scripts/modal_train.py --smoke
 modal run --detach scripts/modal_train.py --num-episodes 300 --seeds 0,1,2
+modal run --detach scripts/modal_train.py --config configs/act_oracle_A.toml --seeds 0   # oracle (d)
 
 # Select (validation rollouts), test once, diagnose
 hf download Autobrik/ecse552-act-deterministic --local-dir outputs/act_deterministic
@@ -68,6 +69,9 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 - **ACT:** upstream code and hyperparameters; chunk 20 (2 s at 10 Hz), 2,000 epochs, upstream's
   random 80/20 episode split, absolute joint targets as actions, temporal ensembling (k = 0.01)
   at evaluation. Only change: robot state is zeroed (R3, images only).
+- **Several collections:** a run's episodes are the source demos followed by the target
+  episodes (`[[targets]]` in the config: stored actions for (d), pseudo-labels for (b)/(c));
+  ACT's 80/20 split is drawn over all of them, so (a) and (d) split differently.
 - **Selection:** `policy_best.ckpt` (upstream: lowest validation loss) vs `policy_last.ckpt`,
   100 source validation rollouts (seeds 900,000+); ties to best.
 - **Test:** each selected checkpoint once, 100 rollouts per object (seeds 1,000,000+), 3 seeds;
@@ -87,6 +91,14 @@ Each collection records every seed, the scene and the expert's deliberate detour
 (`manifest.json`, `initial_states.csv`). Target actions are for the oracle (d) and evaluation
 only (R1); simulator state is never a model input (R3).
 
+**Pseudo-labels** (the IDM → policy interface): a folder with one `episode_XXXXX.npy` per
+target episode, shape (T, 7) float32, the **absolute targets** ACT trains on (six joint
+positions and the gripper opening in [0, 1], as `actions.to_absolute` returns; T =
+`length`), plus `labels.json` (collection, IDM checkpoint, commit). The exporter then never
+reads those episodes' stored actions or states (R1, R3). Upload the folder to the dataset
+repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
+(`configs/act_idm_A.toml`).
+
 ## Decisions that differ from the proposal
 
 | Topic | Decision | Proposal |
@@ -105,9 +117,9 @@ only (R1); simulator state is never a model input (R3).
 | Step | Owner |
 |---|---|
 | Baseline (a): R2 check with 100 demos (running), 3 seeds, test on source and A | Brik |
-| IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); pseudo-labels for (b) | Zheng Ye |
+| IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d) and augmentation (e) with original ACT, from `configs/act_deterministic.toml` | Gonzalo |
+| Oracle (d): `configs/act_oracle_A.toml`; augmentation (e) with original ACT | Gonzalo |
 | Targets B, C: geometry and grasps in the OCBench fork | Brik |
 
 ## Collaborating
@@ -123,7 +135,7 @@ only (R1); simulator state is never a model input (R3).
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload, modal_train, select, evaluate, diagnose, render
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (project), act_stochastic.toml, act_deterministic_proprio.toml
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_A.toml (d), act_idm_A.toml (b/c), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```

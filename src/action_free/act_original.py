@@ -3,12 +3,16 @@
 The upstream code is a pinned, unmodified submodule. This module adds only what is needed to
 run it on our data, from the outside:
 
-1. `export`: our episodes -> ACT's HDF5 layout (`/observations/images/<camera>`,
+1. `export_dataset`: our episodes -> ACT's HDF5 layout (`/observations/images/<camera>`,
    `/observations/qpos`, `/observations/qvel`, `/action`, attribute `sim`). Actions are
    absolute joint targets (`actions.to_absolute`), as in ACT. `qpos` is all zeros, so the
    policy cannot use robot state (R3: images only), the one deliberate change from ACT;
    `use_robot_state=True` exports the arm joints and gripper opening instead (a reference
-   run that measures what R3 costs, never part of the method comparison).
+   run that measures what R3 costs, never part of the method comparison). A run can train
+   on several collections: source demos with their stored actions, plus a target collection
+   with either its stored actions (oracle (d)) or pseudo-labels (methods (b), (c)): a
+   directory of `episode_XXXXX.npy`, (T, 7) float32 absolute targets predicted by the IDM,
+   used instead of the stored actions and states, which are then never read (R1, R3).
 2. Upstream assumptions of its bimanual, fixed-length simulation, adapted without editing
    upstream files:
    - state/action dimension is hardcoded to 14: our 7 action dimensions are zero-padded to
@@ -98,38 +102,80 @@ def robot_state(qpos: np.ndarray, use_robot_state: bool) -> np.ndarray:
     return state
 
 
-def export(files: list[Path], out_dir: Path, use_robot_state: bool = False) -> list[dict]:
-    """Write ACT HDF5 episodes `episode_<i>.hdf5` (i in file order) and `episodes.json`."""
+def _pseudo_labels(labels: Path, f: Path, steps: int) -> np.ndarray:
+    """The IDM's absolute targets for one action-free episode: `<labels>/<episode>.npy`."""
+    a = np.load(Path(labels) / f"{f.stem}.npy")
+    if a.shape != (steps, ACTION_DIM):
+        raise ValueError(
+            f"{labels}/{f.stem}.npy has shape {a.shape}, expected {(steps, ACTION_DIM)}."
+        )
+    return a.astype(np.float32)
+
+
+def export_dataset(
+    collections: list[tuple[list[Path], Path | None]], out_dir: Path, use_robot_state: bool = False
+) -> list[dict]:
+    """Write ACT HDF5 episodes `episode_<i>.hdf5` (i consecutive over the collections, in file
+    order) and `episodes.json`. Each collection is (episode files, labels): `labels` is None
+    to use the stored actions (source demos; a target only for the oracle (d)), or a directory
+    of pseudo-labels (`episode_XXXXX.npy`, (T, 7) float32 absolute targets) used instead."""
     import h5py
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     index = []
-    for i, f in enumerate(files):
-        manifest = Path(f).parent / "manifest.json"
-        if manifest.exists() and json.loads(manifest.read_text())["config"].get("role") == "test":
-            raise ValueError(f"{f} belongs to a held-out test collection; never train on it.")
-        with np.load(f) as ep:
-            steps = int(ep["length"])
-            obs = ep["observations"][:steps]  # o_t for every action a_t
-            action = np.zeros((steps, STATE_DIM), np.float32)
-            action[:, :ACTION_DIM] = to_absolute(ep["actions"], ep["qpos"])
-            seed = int(ep["seed"])
-            state = robot_state(ep["qpos"], use_robot_state)
-        with h5py.File(out_dir / f"episode_{i}.hdf5", "w") as h:
-            h.attrs["sim"] = True
-            g = h.create_group("observations")
-            images = g.create_group("images")
-            for k, cam in enumerate(CAMERAS):
-                images.create_dataset(
-                    cam, data=obs[:, k], chunks=(1, *obs.shape[2:]), compression="lzf"
-                )
-            g.create_dataset("qpos", data=state)
-            g.create_dataset("qvel", data=np.zeros((steps, STATE_DIM), np.float32))
-            h.create_dataset("action", data=action)
-        index.append({"episode": i, "file": Path(f).name, "seed": seed, "length": steps})
+    for files, labels in collections:
+        if labels is not None and use_robot_state:
+            raise ValueError("The robot state of action-free videos is privileged (R3).")
+        for f in map(Path, files):
+            manifest = f.parent / "manifest.json"
+            if (
+                manifest.exists()
+                and json.loads(manifest.read_text())["config"].get("role") == "test"
+            ):
+                raise ValueError(f"{f} belongs to a held-out test collection; never train on it.")
+            with np.load(f) as ep:
+                steps = int(ep["length"])
+                obs = ep["observations"][:steps]  # o_t for every action a_t
+                seed = int(ep["seed"])
+                action = np.zeros((steps, STATE_DIM), np.float32)
+                if labels is None:
+                    action[:, :ACTION_DIM] = to_absolute(ep["actions"], ep["qpos"])
+                    state = robot_state(ep["qpos"], use_robot_state)
+                else:  # action-free video: its stored actions and states are never read
+                    action[:, :ACTION_DIM] = _pseudo_labels(labels, f, steps)
+                    state = np.zeros((steps, STATE_DIM), np.float32)
+            i = len(index)
+            with h5py.File(out_dir / f"episode_{i}.hdf5", "w") as h:
+                h.attrs["sim"] = True
+                g = h.create_group("observations")
+                images = g.create_group("images")
+                for k, cam in enumerate(CAMERAS):
+                    images.create_dataset(
+                        cam, data=obs[:, k], chunks=(1, *obs.shape[2:]), compression="lzf"
+                    )
+                g.create_dataset("qpos", data=state)
+                g.create_dataset("qvel", data=np.zeros((steps, STATE_DIM), np.float32))
+                h.create_dataset("action", data=action)
+            index.append(
+                {
+                    "episode": i,
+                    "dir": str(f.parent),
+                    "file": f.name,
+                    "seed": seed,
+                    "length": steps,
+                    "labels": None if labels is None else str(labels),
+                }
+            )
     (out_dir / "episodes.json").write_text(json.dumps(index, indent=2))
     return index
+
+
+def export(
+    files: list[Path], out_dir: Path, use_robot_state: bool = False, labels: Path | None = None
+) -> list[dict]:
+    """`export_dataset` for one collection."""
+    return export_dataset([(files, labels)], out_dir, use_robot_state)
 
 
 def _patch_variable_length(utils) -> None:
@@ -191,26 +237,43 @@ def act_args(ckpt_dir: Path, seed: int, cfg: dict) -> dict:
     }
 
 
-def describe_split(dataset_dir: Path, source_dir: Path, split: dict) -> dict:
-    """Object, scene and training initial states of a run, for out-of-distribution checks."""
+def describe_split(dataset_dir: Path, split: dict) -> dict:
+    """Collections (the first is the source), objects, scenes and training initial states of
+    a run, for out-of-distribution checks."""
     from action_free.initial_states import read_csv
 
     index = json.loads((Path(dataset_dir) / "episodes.json").read_text())
-    manifest = json.loads((Path(source_dir) / "manifest.json").read_text())
-    starts = {r["file"]: r for r in read_csv(source_dir) or []}
-    train_files = [index[i]["file"] for i in split.get("train", [])]
+    collections, starts = [], {}
+    for d in dict.fromkeys(e["dir"] for e in index):  # unique, in order
+        manifest = json.loads((Path(d) / "manifest.json").read_text())
+        labels = next(e["labels"] for e in index if e["dir"] == d)
+        info = Path(labels) / "labels.json" if labels else None
+        collections.append(
+            {
+                "dir": d,
+                "object": manifest["config"]["object_name"],
+                "scene_name": manifest["config"].get("scene", "random_yaw"),
+                "expert": manifest["config"].get("expert", "stochastic"),
+                "scene": manifest.get("object", {}).get("env_kwargs"),
+                "num_episodes": sum(e["dir"] == d for e in index),
+                "actions": "stored" if labels is None else "pseudo-labels",
+                "labels": labels,
+                "labels_info": json.loads(info.read_text()) if info and info.exists() else None,
+            }
+        )
+        starts.update({(d, r["file"]): r for r in read_csv(d) or []})
+    name = lambda e: f"{Path(e['dir']).name}/{e['file']}"  # noqa: E731
+    train = [index[i] for i in split.get("train", [])]
     return {
-        "source_dir": str(source_dir),
-        "object": manifest["config"]["object_name"],
-        "scene_name": manifest["config"].get("scene", "random_yaw"),
-        "expert": manifest["config"].get("expert", "stochastic"),
-        "scene": manifest["object"]["env_kwargs"],
-        "train_files": train_files,
-        "val_files": [index[i]["file"] for i in split.get("val", [])],
+        **{k: collections[0][k] for k in ("object", "scene_name", "expert", "scene")},
+        "source_dir": collections[0]["dir"],
+        "collections": collections,
+        "train_files": [name(e) for e in train],
+        "val_files": [name(index[i]) for i in split.get("val", [])],
         "train_initial_states": [
-            [starts[f]["cube_x"], starts[f]["cube_y"], starts[f]["cube_yaw_mod90_deg"]]
-            for f in train_files
-            if f in starts
+            [s["cube_x"], s["cube_y"], s["cube_yaw_mod90_deg"]]
+            for e in train
+            if (s := starts.get((e["dir"], e["file"])))
         ],
     }
 
@@ -221,7 +284,6 @@ def train(
     num_episodes: int,
     seed: int,
     cfg: dict,
-    source_dir: Path | None = None,
     run_info: dict | None = None,
     wandb_run=None,
 ) -> dict:
@@ -286,7 +348,7 @@ def train(
         "best_epoch": best["epoch"],
         "best_val_loss": best["val/loss"],
         "last_epoch": cfg["num_epochs"] - 1,
-        "data": describe_split(dataset_dir, source_dir, split) if source_dir else None,
+        "data": describe_split(dataset_dir, split),
         **(run_info or {}),
     }
     (ckpt_dir / "act_run.json").write_text(json.dumps(record, indent=2))

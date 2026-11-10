@@ -1,5 +1,7 @@
 """Episode splits, model inputs, exact replay, initial states, actions, and the ACT adapter."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
@@ -112,11 +114,11 @@ def test_collection_records_expert_detours(tiny_collection):
     assert all(r["num_detours"] != "" for r in read_csv(tiny_collection))
 
 
-def _fake_image_collection(root, num_episodes=10, steps=12, size=32):
+def _fake_image_collection(root, num_episodes=10, steps=12, size=32, object_name="source"):
     """Tiny episodes with random images, enough to run the training loop on CPU."""
     import json
 
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(num_episodes)
     root.mkdir(parents=True, exist_ok=True)
     for i in range(num_episodes):
         np.savez_compressed(
@@ -128,9 +130,21 @@ def _fake_image_collection(root, num_episodes=10, steps=12, size=32):
             success=True,
             length=steps,
         )
-    manifest = {"config": {"env_name": "fake", "object_name": "source"}, "episodes": []}
+    manifest = {"config": {"env_name": "fake", "object_name": object_name}, "episodes": []}
     (root / "manifest.json").write_text(json.dumps(manifest))
     return root
+
+
+def _fake_labelled_collection(root, num_episodes, steps=12):
+    """A target collection plus a pseudo-label folder in the documented format."""
+    target = _fake_image_collection(root / "A", num_episodes, steps, object_name="A")
+    labels = root / "labels"
+    labels.mkdir()
+    rng = np.random.default_rng(1)
+    for f in sorted(target.glob("episode_*.npz")):
+        np.save(labels / f"{f.stem}.npy", rng.uniform(-1, 1, (steps, 7)).astype(np.float32))
+    (labels / "labels.json").write_text('{"idm": "fake"}')
+    return target, labels
 
 
 def test_checkpoint_selection_rule():
@@ -217,6 +231,34 @@ def test_export_writes_act_layout(tmp_path):
         assert not h["action"][:, ACTION_DIM:].any() and not h["observations/qpos"][()].any()
 
 
+def test_export_merges_collections_and_uses_pseudo_labels(tmp_path):
+    import h5py
+
+    from action_free.act_original import ACTION_DIM, export, export_dataset
+    from action_free.actions import to_absolute
+
+    source = _fake_image_collection(tmp_path / "source", num_episodes=3)
+    target, labels = _fake_labelled_collection(tmp_path, num_episodes=2)
+    files = sorted(target.glob("episode_*.npz"))
+    index = export_dataset(
+        [(sorted(source.glob("episode_*.npz")), None), (files, labels)], tmp_path / "act"
+    )
+    assert [e["episode"] for e in index] == [0, 1, 2, 3, 4]
+    assert [Path(e["dir"]).name for e in index] == ["source"] * 3 + ["A"] * 2
+    assert [e["labels"] is None for e in index] == [True] * 3 + [False] * 2
+    ep = np.load(files[1])
+    with h5py.File(tmp_path / "act" / "episode_4.hdf5") as h:
+        a = h["action"][:, :ACTION_DIM]
+        np.testing.assert_array_equal(a, np.load(labels / "episode_00001.npy"))
+        assert not np.allclose(a, to_absolute(ep["actions"], ep["qpos"]))  # stored actions unused
+        assert not h["observations/qpos"][()].any()
+    with pytest.raises(ValueError, match="privileged"):
+        export(files, tmp_path / "act2", use_robot_state=True, labels=labels)
+    np.save(labels / "episode_00000.npy", np.zeros((5, ACTION_DIM), np.float32))
+    with pytest.raises(ValueError, match="shape"):
+        export(files, tmp_path / "act3", labels=labels)
+
+
 def test_export_refuses_test_collections(tmp_path):
     import json
 
@@ -258,10 +300,14 @@ def test_upstream_dataset_handles_variable_length_episodes(tmp_path):
 def test_original_act_trains_and_loads(tmp_path):
     import json
 
-    from action_free.act_original import ActPolicy, export, train
+    from action_free.act_original import ActPolicy, export_dataset, train
 
-    data = _fake_image_collection(tmp_path / "data")
-    export(sorted(data.glob("episode_*.npz")), tmp_path / "act")
+    source = _fake_image_collection(tmp_path / "source", num_episodes=6)
+    target, labels = _fake_labelled_collection(tmp_path, num_episodes=4)
+    export_dataset(
+        [(sorted(source.glob("episode_*.npz")), None), (sorted(target.glob("*.npz")), labels)],
+        tmp_path / "act",
+    )
     cfg = {"num_epochs": 2, "batch_size": 2, "lr": 1e-5, "kl_weight": 10, "chunk_size": 5,
            "hidden_dim": 64, "dim_feedforward": 64}  # fmt: skip
     record = train(tmp_path / "act", tmp_path / "run", 10, 0, {**cfg, "use_robot_state": True})
@@ -269,6 +315,14 @@ def test_original_act_trains_and_loads(tmp_path):
     for name in ("policy_best.ckpt", "policy_last.ckpt", "dataset_stats.pkl", "act_run.json"):
         assert (run / name).exists(), name
     assert sorted(record["split"]["train"] + record["split"]["val"]) == list(range(10))
+    data = record["data"]
+    assert data["object"] == "source" and [c["object"] for c in data["collections"]] == [
+        "source",
+        "A",
+    ]
+    assert [c["actions"] for c in data["collections"]] == ["stored", "pseudo-labels"]
+    assert data["collections"][1]["labels_info"] == {"idm": "fake"}
+    assert len(data["train_files"]) + len(data["val_files"]) == 10
     assert len(json.loads((run / "history.json").read_text())) == 2
     policy = ActPolicy(run / "policy_last.ckpt", torch.device("cuda"))
     images = torch.randint(0, 255, (1, 3, 32, 32, 3), dtype=torch.uint8, device="cuda")

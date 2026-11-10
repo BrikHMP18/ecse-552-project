@@ -1,0 +1,23 @@
+# Methods (b)/(c): act_deterministic.toml plus target A's action-free videos labelled by the
+# IDM (unadapted for (b), DANN-adapted for (c)). `actions` is a pseudo-label folder in the
+# dataset repository (README: Pseudo-labels); its stored actions are never read (R1).
+
+data_dir = "data/source-deterministic-n300-seed0"
+num_episodes = 300
+exclude_detours = false
+
+num_epochs = 2000
+batch_size = 8
+lr = 1e-5
+kl_weight = 10
+chunk_size = 20
+hidden_dim = 512
+dim_feedforward = 3200
+
+execution = "ensemble:0.01"
+wandb_project = "ecse552"
+
+[[targets]]
+dir = "data/A-deterministic-n200-seed100000"
+num_episodes = 200
+actions = "labels/A-deterministic-idm-seed0"   # replace with the IDM's folder
