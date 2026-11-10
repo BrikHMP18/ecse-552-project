@@ -6,7 +6,9 @@ and the task stay fixed; only the manipulated object changes.
 
 Colours follow the proposal: a red source cube and a blue cube for target A. Stock OCBench
 renders the single cube blue, so the source sets `cube_colors=('red',)` explicitly
-(supported by our OCBench fork, CPU environments only).
+(supported by our OCBench fork, CPU environments only). Targets B, C and D are 9 cm blocks
+(`object_size`, same fork); the expert grasps them across their second side (6 or 7 cm),
+and the 7 cm ones 2 cm above the centre, where the gripper linkage clears the block.
 
 Every object shares `SCENE_KWARGS`: a dark-gray 12 cm (inner side) square marks the fixed
 goal, and success requires the whole cube inside it, resting on the table, released and
@@ -45,7 +47,6 @@ class ObjectSpec:
     name: str
     description: str
     env_kwargs: dict = field(default_factory=dict)
-    implemented: bool = True
 
 
 OBJECTS: dict[str, ObjectSpec] = {
@@ -53,10 +54,22 @@ OBJECTS: dict[str, ObjectSpec] = {
     for spec in (
         ObjectSpec("source", "red 6x6x6 cm cube", {"cube_colors": ("red",)}),
         ObjectSpec("A", "blue 6x6x6 cm cube (appearance)", {"cube_colors": ("blue",)}),
-        # Geometry targets need a new block shape and adapted expert grasps in the fork.
-        ObjectSpec("B", "red 9x6x6 cm block (geometry, same grasp width)", implemented=False),
-        ObjectSpec("C", "red 9x7x6 cm block (geometry and grasp width)", implemented=False),
-        ObjectSpec("D", "blue 9x7x6 cm block (appearance and geometry)", implemented=False),
+        # At yaw 0 the 9 cm side lies along x.
+        ObjectSpec(
+            "B",
+            "red 9x6x6 cm block (geometry, same grasp width)",
+            {"cube_colors": ("red",), "object_size": (0.09, 0.06, 0.06)},
+        ),
+        ObjectSpec(
+            "C",
+            "red 9x7x6 cm block (geometry and grasp width)",
+            {"cube_colors": ("red",), "object_size": (0.09, 0.07, 0.06)},
+        ),
+        ObjectSpec(
+            "D",
+            "blue 9x7x6 cm block (appearance and geometry)",
+            {"cube_colors": ("blue",), "object_size": (0.09, 0.07, 0.06)},
+        ),
     )
 }
 
@@ -71,7 +84,4 @@ def env_kwargs(name: str, scene: str = "fixed_yaw") -> dict:
 def get_object(name: str) -> ObjectSpec:
     if name not in OBJECTS:
         raise KeyError(f"Unknown object {name!r}; choose from {sorted(OBJECTS)}.")
-    spec = OBJECTS[name]
-    if not spec.implemented:
-        raise NotImplementedError(f"Object {name} ({spec.description}) is not implemented yet.")
-    return spec
+    return OBJECTS[name]

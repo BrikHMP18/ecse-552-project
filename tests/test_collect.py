@@ -8,8 +8,10 @@ import json
 import numpy as np
 
 from action_free.collect import CollectConfig, collect, make_env, run_episode
+from action_free.objects import OBJECTS
 
 STATE_ENV = "block-cpu-lite-single-task1-v0"
+VISUAL_ENV = "visual-block-cpu-lite-single-task1-v0"
 
 
 def test_same_seed_same_episode():
@@ -48,24 +50,61 @@ def _cube_rgb(env):
     return u._model.geom(u._cube_geom_ids_list[0][0]).rgba[:3].copy()
 
 
-def test_objects_follow_proposal_colours():
-    """Source is the red cube and target A the blue cube, as in the proposal."""
-    rgb = {}
-    for name in ("source", "A"):
+def test_objects_follow_proposal_colours_and_sizes():
+    """Red: source, B, C; blue: A, D. Cubes of 6 cm; blocks of 9 x 6 x 6 and 9 x 7 x 6 cm."""
+    sizes = {"source": (6, 6, 6), "A": (6, 6, 6), "B": (9, 6, 6), "C": (9, 7, 6), "D": (9, 7, 6)}
+    assert set(sizes) == set(OBJECTS)
+    for name, size in sizes.items():
         env = make_env(STATE_ENV, name)
         env.reset(seed=0)
-        rgb[name] = _cube_rgb(env)
+        u = env.unwrapped
+        red, _, blue = _cube_rgb(env)
+        assert (blue > red) == (name in ("A", "D"))
+        np.testing.assert_allclose(u._model.geom_size[u._cube_geom_ids_list[0][0]] * 200, size)
         env.close()
-    assert rgb["source"][0] > rgb["source"][2]  # red dominates blue
-    assert rgb["A"][2] > rgb["A"][0]  # blue dominates red
 
 
-def test_unimplemented_targets_fail_loudly():
-    import pytest
+def test_same_seed_same_initial_state_for_every_object():
+    states = {}
+    for name in OBJECTS:
+        env = make_env(STATE_ENV, name)
+        states[name] = []
+        for seed in range(5):
+            env.reset(seed=seed)
+            states[name].append(env.unwrapped._data.qpos.copy())
+        env.close()
+    for name in OBJECTS:
+        np.testing.assert_array_equal(states[name], states["source"])
+    assert not np.array_equal(states["source"][0], states["source"][1])
 
-    for name in ("B", "C", "D"):
-        with pytest.raises(NotImplementedError):
-            make_env(STATE_ENV, name)
+
+def test_blocks_render():
+    for name, red_block in (("B", True), ("C", True), ("D", False)):
+        env = make_env(VISUAL_ENV, name)
+        ob, _ = env.reset(seed=0)
+        env.close()
+        assert ob.shape == (3, 224, 224, 3)
+        r, g, b = (ob[0, ..., c].astype(int) for c in range(3))  # front camera
+        block = (r > g + 80) & (r > b + 80) if red_block else (b > r + 80) & (b > g + 40)
+        assert block.sum() > 50
+
+
+def test_expert_moves_the_blocks():
+    for name in ("B", "C"):
+        env = make_env(STATE_ENV, name)
+        assert all(run_episode(env, STATE_ENV, seed)[1]["success"] for seed in range(3))
+        env.close()
+
+
+def test_success_uses_the_block_size():
+    """2 cm off the goal, the 6 cm cube is inside the 12 cm square; the 9 cm block is not."""
+    inside = {}
+    for name in ("source", "B"):
+        env = make_env(STATE_ENV, name)
+        env.reset(seed=0)
+        inside[name] = _place_cube(env, (0.445, 0.0, 0.03)).goal_marker_conditions(0)["inside"]
+        env.close()
+    assert inside == {"source": True, "B": False}
 
 
 def _place_cube(env, xyz):
@@ -79,7 +118,7 @@ def _place_cube(env, xyz):
 
 
 def test_goal_marker_is_in_every_scene():
-    for name in ("source", "A"):
+    for name in OBJECTS:
         env = make_env(STATE_ENV, name)
         env.reset(seed=0)
         names = {env.unwrapped._model.geom(g).name for g in range(env.unwrapped._model.ngeom)}
