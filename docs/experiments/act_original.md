@@ -50,9 +50,9 @@ Failure modes on the source cube (100 validation rollouts of the selected checkp
 6. Operations: Modal preempted `act_clean` once; upstream ACT cannot resume, so the run
    restarted from zero (Modal does not offer non-preemptible GPU containers).
 
-## Open decisions
+## Decisions (10 November 2026)
 
-- Use the ACT-like data (`clean`) for all methods.
-- R2 sweep on it (100 and 200 demos; ~20–40 min each) to apply the pre-registered rule.
-- Two more training seeds of the chosen setting, then the first full test.
-- Optionally select among the every-100-epoch checkpoints on validation rollouts (protocol change).
+- **The ACT-like data (`clean`) is the project data** for every method and object
+  (`configs/data.toml`); the stock-data run stays as the reason.
+- R2 as in the proposal: 100 demos if they reach 80% on validation, else 300 (running).
+- Next: two more training seeds of the chosen size, then the full test.
