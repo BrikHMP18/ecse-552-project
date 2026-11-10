@@ -76,6 +76,7 @@ MUJOCO_GL=egl uv run python scripts/collect_demos.py --object source --num-episo
 MUJOCO_GL=egl uv run python scripts/replay_episode.py data/source-deterministic-n300-seed0/episode_00000.npz
 uv run python scripts/view_episode.py data/source-deterministic-n300-seed0 --episodes 0 1 2
 uv run python scripts/upload_dataset_hf.py data/source-deterministic-n300-seed0 data/A-deterministic-n200-seed100000
+uv run --with 'lerobot[dataset]' python scripts/upload_lerobot_hf.py data/*-deterministic-*   # one LeRobot dataset per collection
 
 # Train original ACT on Modal (pushes checkpoints to HF)
 modal run scripts/modal_train.py --smoke
@@ -87,6 +88,7 @@ hf download Autobrik/ecse552-act-deterministic --local-dir outputs/act_determini
 MUJOCO_GL=egl uv run python scripts/select_checkpoint.py outputs/act_deterministic/n300/seed*
 MUJOCO_GL=egl uv run python scripts/evaluate_policy.py outputs/act_deterministic/n300/seed0/selected.ckpt --object A
 MUJOCO_GL=egl uv run python scripts/diagnose_failures.py outputs/act_deterministic/n300/seed0/selected.ckpt
+MUJOCO_GL=egl uv run --with gradio python scripts/play_policy.py   # watch rollouts live: http://localhost:7860
 ```
 
 Modal access: ask Brik. Runs that publish require a clean working tree.
@@ -116,7 +118,7 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 | | |
 |---|---|
 | Episodes (`.npz`) | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block) |
-| LeRobot copies (visualizer) | [ecse552-ocbench-source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [ecse552-ocbench-A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A) |
+| LeRobot copies (visualizer) | [source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A): data of 8 November, not yet refreshed; `scripts/upload_lerobot_hf.py` publishes one per collection (source, source-test, A–D) |
 | ACT checkpoints | [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic) (project data), [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
 | Training curves | W&B `mu-robotics/ecse552` |
 
@@ -166,7 +168,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
-scripts/           collect, replay, view, upload, modal_train, select, evaluate, diagnose, render
+scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render
 configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C}.toml (d), act_idm_A.toml (b/c), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
