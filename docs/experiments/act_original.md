@@ -29,6 +29,7 @@ old run names.
 | `act_stochastic` | 40% / 53% | last (epoch 1999) | **53%** [43, 62] | **0%** [0, 4] | 10 ms |
 | `act_deterministic` | 61% / 98% | last (epoch 1999) | **99%** [95, 100] | **7%** [3, 14] | 10 ms |
 | `act_deterministic_proprio` | 44% / 66% | last (epoch 1999) | **69%** [59, 77] | **1%** [0, 5] | 10 ms |
+| `act_deterministic`, **100 demos** (R2 check, 10 Nov) | 35% / 37% | last (epoch 1999) | not tested | not tested | |
 
 Failure modes on the source cube (100 validation rollouts of the selected checkpoint;
 success / never lifted / placed just outside / lifted, ended far / inside, not released):
@@ -80,5 +81,6 @@ its one interpretive finding is the test-distribution split above.
 
 - **The deterministic data is the project data** for every method and object
   (`configs/data.toml`); the stochastic run stays as the reason.
-- R2 as in the proposal: 100 demos if they reach 80% on validation, else 300 (running).
-- Next: two more training seeds of the chosen size, then the full test.
+- **R2: 300 source demos for every method.** 100 demos reach 37% on validation (rule: 100 if
+  at least 80%, else 300; [W&B](https://forge.coreweave.com/wandb/mu-robotics/ecse552/runs/xqe6idb3)).
+- Next: two more training seeds at 300 demos, then the full test.

@@ -1,25 +1,52 @@
 # Learning to Manipulate a New Object from Action-Free Videos
 
 McGill ECSE 552 (Deep Learning), Fall 2026, group 9. A UR5e arm with a Robotiq gripper
-(OCBench, MuJoCo) moves a cube into a goal square, seen by three RGB cameras. Labeled demos
+(OCBench, MuJoCo) moves a cube or block into a goal square, seen by three RGB cameras. Labeled demos
 exist only for the red **source** cube; each **target** object has only videos. An inverse
 dynamics model (IDM), adapted with DANN, labels those videos, and an image-only ACT policy
 trains on both. Plan, methods (a)–(f), requirements R1–R6: [proposal](docs/proposal/main.pdf).
 
 ![Expert episode: front, side and wrist cameras](docs/episode.gif)
 
-![Initial state, source and target A](docs/scene.png)
+![Initial state of every object (seed 0): front, side and wrist cameras](docs/scene.png)
+
+## Objects
+
+Only the manipulated object changes; robot, cameras, goal, initial states (same seed, same
+start for every object) and expert settings are shared. Defined in
+[`src/action_free/objects.py`](src/action_free/objects.py); look at one with
+`MUJOCO_GL=egl uv run python scripts/render_cameras.py --object C`.
+
+| Object | Shape (cm), colour | Changes vs source | Expert grasp | Episodes (`deterministic`) | Seeds from | Expert success |
+|---|---|---|---|---|---|---:|
+| source | 6 x 6 x 6 cube, red | (labeled demos) | across 6 cm, at the centre | [300](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/source-deterministic-n300-seed0) + [50 held-out](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/source-deterministic-test-n50-seed50000) | 0 / 50,000 | 99.7% |
+| A | 6 x 6 x 6 cube, blue | appearance | as source | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/A-deterministic-n200-seed100000) | 100,000 | 100% |
+| B | 9 x 6 x 6 block, red | geometry | as source (across the 6 cm side) | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/B-deterministic-n200-seed200000) | 200,000 | 99.0% |
+| C | 9 x 7 x 6 block, red | geometry and grasp width | across the 7 cm side, 2 cm above the centre | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/C-deterministic-n200-seed300000) | 300,000 | 100% |
+| D | 9 x 7 x 6 block, blue | appearance, geometry and grasp width | as C | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/D-deterministic-n200-seed400000) | 400,000 | 100% |
+
+Targets are action-free videos for every method; their stored actions are only for the
+oracle (d) and evaluation. Blocks come from the fork's `object_size` argument: the 9 cm side
+lies along x, the expert never turns the grasp by 90 degrees (9 cm does not fit the 8.5 cm
+gripper), and success needs the whole block inside the 12 cm square. C and D are grasped
+higher because the gripper linkage hits a 7 cm block at its centre height (47% of episodes
+needed a second grasp attempt; 12% when grasping 2 cm higher, source 7%).
+
+```bash
+hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data \
+    --revision <[hub] revision in configs/data.toml> --include "C-deterministic-*/*"
+```
 
 ## Status (10 November 2026)
 
 - **Project data: `deterministic` demonstrations** (cube yaw fixed at 0; expert without
   detours, at fixed speed), for every method and object. Published: source, held-out source
-  test and target A. The `stochastic` variant (stock OCBench: random yaw, detours, random
+  test and targets A, B, C and D (see [Objects](#objects)). The `stochastic` variant (stock OCBench: random yaw, detours, random
   speed) is kept for reference.
 - Baseline (a) with the **original ACT** (`third_party/act`, unmodified), 300 demos, seed 0:
   **99% on the source cube with images only**, 7% on target A (stochastic data: 53% and 0%).
   Results: [docs/experiments/act_original.md](docs/experiments/act_original.md).
-- Not yet: IDM (`idm.py`), DANN, targets B–D.
+- Not yet: IDM (`idm.py`), DANN; no policy has been trained or tested on B, C or D.
 
 ## Setup
 
@@ -66,6 +93,7 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 - **Data:** the `deterministic` collections (scene `fixed_yaw`, expert `deterministic`) for
   every method and object; the `stochastic` ones (stock OCBench) are a reference.
 - **R2:** 100 source demos if they reach 80% on validation rollouts, else 300 (proposal).
+  Decided 10 November: **300** (100 demos reach 37%).
 - **ACT:** upstream code and hyperparameters; chunk 20 (2 s at 10 Hz), 2,000 epochs, upstream's
   random 80/20 episode split, absolute joint targets as actions, temporal ensembling (k = 0.01)
   at evaluation. Only change: robot state is zeroed (R3, images only).
@@ -108,7 +136,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 | Actions | absolute joint targets (ACT); OCBench deltas computed by the low-level controller | joint increments |
 | Goal / success | 12 cm gray square; cube inside, resting, released, still for 1 s | within 4 cm |
 | Initial state | cube in a 20 x 20 cm area, yaw fixed at 0; fixed arm pose | OCBench defaults |
-| Expert | OCBench's, without deliberate detours and at fixed speed | OCBench's, adapted per object |
+| Expert | OCBench's, without deliberate detours and at fixed speed; blocks grasped across their width (C, D: 2 cm higher) | OCBench's, adapted per object |
 | Baseline policy | original ACT code; checkpoint chosen on validation rollouts | own ACT, fixed steps |
 | R6 | inference < 100 ms per call (measured 10 ms) | < 0.5 s per chunk |
 
@@ -116,11 +144,11 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 
 | Step | Owner |
 |---|---|
-| Baseline (a): R2 check with 100 demos (running), 3 seeds, test on source and A | Brik |
+| Baseline (a): seeds 1 and 2 at 300 demos, then the test on source and A | Brik |
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
 | Oracle (d): `configs/act_oracle_A.toml`; augmentation (e) with original ACT | Gonzalo |
-| Targets B, C: geometry and grasps in the OCBench fork | Brik |
+| Baseline (a) tested on targets B, C, D | Brik |
 
 ## Collaborating
 

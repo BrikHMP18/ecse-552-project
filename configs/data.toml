@@ -22,6 +22,9 @@ test = 1_000_000             # final rollouts: each selected checkpoint once, ev
 source = "data/source-deterministic-n300-seed0"
 source_test = "data/source-deterministic-test-n50-seed50000"
 A = "data/A-deterministic-n200-seed100000"
+B = "data/B-deterministic-n200-seed200000"
+C = "data/C-deterministic-n200-seed300000"
+D = "data/D-deterministic-n200-seed400000"
 # Reference only: stochastic demonstrations, stock OCBench (random_yaw, stochastic); same seeds.
 source_stochastic = "data/source-stochastic-n300-seed0"
 source_test_stochastic = "data/source-stochastic-test-n50-seed50000"
@@ -35,6 +38,7 @@ checkpoint = "policy_best.ckpt (lowest validation loss) vs policy_last.ckpt"
 selection = "higher success on 100 source validation rollouts with temporal ensembling, ties to best"
 test = "3 training seeds x 100 test rollouts per method and object; mean, std and 95% CI"
 r2_rule = "proposal: 100 source demos if their selected checkpoint reaches >= 80% validation success, else 300 (10 Nov 2026, before the 100-demo result; was 100/200/300)"
+r2_decision = "300 source demos for every method (10 Nov 2026: 100 demos reach 37% on validation)"
 
 [hub]
 # Public Hugging Face copy of the collections above; training downloads this exact revision.
