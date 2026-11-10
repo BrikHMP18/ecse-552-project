@@ -1,11 +1,10 @@
-# Reference only (breaks R3): act_clean.toml with robot state as input, like ACT itself.
-# Measures what images-only costs; never part of the method comparison. ACT-like data: cube yaw fixed at 0 (scene "fixed_yaw") and a
-# deterministic expert (no deliberate detours, fixed speed), like ACT's scripted sim demos.
+# Project configuration: the original ACT (third_party/act, unmodified; adapter
+# src/action_free/act_original.py) on the project data (cube yaw 0, deterministic expert).
+# Values follow the ACT README command for sim_transfer_cube_scripted, except where noted.
 
-data_dir = "data/source-clean-n300-seed0"   # --scene fixed_yaw --expert deterministic
-num_episodes = 300                    # R2 (docs/experiments/act_baseline_a.md); sweeps override it
+data_dir = "data/source-deterministic-n300-seed0"   # collector defaults; the launcher's --num-episodes sets N
+num_episodes = 300                    # R2 (configs/data.toml [protocol]); the launcher's --num-episodes overrides it
 exclude_detours = false               # true: drop demos with deliberate expert detours
-use_robot_state = true                # arm joints and gripper opening as policy input
 
 num_epochs = 2000      # README value (one epoch = one sampled step per training episode)
 batch_size = 8

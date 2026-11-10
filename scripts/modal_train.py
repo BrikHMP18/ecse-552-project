@@ -270,7 +270,7 @@ def _git(*args: str) -> str:
 
 @app.local_entrypoint()
 def main(
-    config: str = "configs/act_clean.toml",
+    config: str = "configs/act_deterministic.toml",
     num_episodes: str = "",
     seeds: str = "0",
     smoke: bool = False,

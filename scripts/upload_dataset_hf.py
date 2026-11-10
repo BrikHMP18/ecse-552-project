@@ -1,6 +1,6 @@
 """Publish collections to a public Hugging Face dataset repository, with a dataset card.
 
-    uv run python scripts/upload_dataset_hf.py data/source-n300-seed0 data/A-n200-seed100000 \
+    uv run python scripts/upload_dataset_hf.py data/source-deterministic-n300-seed0 data/A-deterministic-n200-seed100000 \
         --repo Autobrik/ecse552-ocbench-block
 
 Each collection directory is uploaded as a folder of the same name (episodes, manifest,
@@ -63,11 +63,12 @@ the same initial cube and arm state for every object.
   still for 1 s; episodes stop at success.
 - Initial state: the cube in a 20 x 20 cm area beside the goal (x 0.32-0.52 m,
   y 0.15-0.35 m); the arm always starts from the same pose (effector at (0.35, 0, 0.30) m,
-  yaw 0). Scene `default`: uniform cube yaw; `fixed_yaw`: yaw 0, like ACT's simulated tasks.
-- Expert `ocbench`: OCBench's scripted expert, with deliberate mistakes (`p_mistake` = 0.1
-  per subgoal: some episodes first carry the cube to a random spot, `num_detours`) and a
-  random speed; `deterministic`: no mistakes, fixed speed. The `clean` folders use
-  `fixed_yaw` + `deterministic`.
+  yaw 0). Scene `fixed_yaw`: cube yaw 0, like ACT's simulated tasks; `random_yaw`: uniform.
+- Expert `deterministic`: OCBench's scripted expert without deliberate mistakes and at a
+  fixed speed; `stochastic`: stock OCBench, with mistakes (`p_mistake` = 0.1 per subgoal:
+  some episodes first carry the cube to a random spot, `num_detours`) and a random speed.
+- `*-deterministic-*` folders (`fixed_yaw` + `deterministic`) are the project data for every
+  method; `*-stochastic-*` (`random_yaw` + `stochastic`) are kept for reference.
 - Only successful expert episodes are kept; failed seeds are skipped (see `manifest.json`).
 
 ## Files
@@ -91,7 +92,7 @@ replaying the stored actions from the seed reproduces `qpos` exactly.
 
 ```python
 import numpy as np
-ep = np.load("source-n300-seed0/episode_00000.npz")
+ep = np.load("source-deterministic-n300-seed0/episode_00000.npz")
 front, side, wrist = ep["observations"][0]
 ```
 
@@ -109,7 +110,9 @@ uv sync --locked
 MUJOCO_GL=egl uv run python scripts/collect_demos.py --object source --num-episodes 300 --base-seed 0
 ```
 
-Each folder's `provenance.txt` has the exact command and commits.
+Each folder's `provenance.txt` has the exact command and commits. Folders were renamed on
+10 November 2026 (`clean` -> `deterministic`, unlabeled -> `stochastic`; see `provenance.txt`);
+earlier commands ran with the collector defaults of their commit.
 
 Simulator state is bit-exact per seed; GPU (EGL) images can differ from the stored ones in
 about 0.03% of pixels (shadow edges).
@@ -132,7 +135,7 @@ def collection_row(d: Path) -> tuple[str, str]:
     row = (
         f"| `{d.name}/` | {m['config']['object_name']}: {m['object']['description']}"
         f"{' (held-out test)' if m['config'].get('role') == 'test' else ''} "
-        f"| {m['config'].get('scene', 'default')} / {m['config'].get('expert', 'ocbench')} "
+        f"| {m['config'].get('scene', 'random_yaw')} / {m['config'].get('expert', 'stochastic')} "
         f"| {m['num_kept']} | {min(seeds)}-{max(seeds)} | {m['expert_success_rate']:.1%} "
         f"| {m['total_transitions']} | {m['mean_length']:.1f} "
         f"| `{prov['project_commit'][:7]}` |"

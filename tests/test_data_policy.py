@@ -8,7 +8,7 @@ from action_free.collect import CollectConfig, collect, make_env, run_episode
 from action_free.data import (
     split_of,
 )
-from action_free.objects import SCENE_KWARGS
+from action_free.objects import SCENE_KWARGS, env_kwargs
 
 STATE_ENV = "block-cpu-lite-single-task1-v0"
 
@@ -81,7 +81,7 @@ def test_evaluation_flags_out_of_distribution_starts_and_objects():
 
     train = {
         "object": "source",
-        "scene": json_roundtrip({**SCENE_KWARGS, "cube_colors": ("red",)}),
+        "scene": json_roundtrip(env_kwargs("source")),
         "train_initial_states": [[0.40, 0.25, 10.0], [0.45, 0.30, 50.0]],
     }
     episodes = [
@@ -184,7 +184,7 @@ def test_act_config_matches_upstream_cli():
 
     from action_free.act_original import _argv, _cli, _import_upstream, act_args
 
-    cfg = tomllib.loads(Path("configs/act_original.toml").read_text())
+    cfg = tomllib.loads(Path("configs/act_deterministic.toml").read_text())
     args = act_args("ckpt", 0, cfg)
     assert args["chunk_size"] == 20 and args["num_epochs"] == 2000 and args["kl_weight"] == 10
     _import_upstream()
@@ -297,7 +297,7 @@ def test_fixed_yaw_scene_and_deterministic_expert():
     from action_free.initial_states import current
 
     yaws = {}
-    for scene in ("default", "fixed_yaw"):
+    for scene in ("random_yaw", "fixed_yaw"):
         env = make_env(STATE_ENV, scene=scene)
         yaws[scene] = []
         for seed in range(10):
@@ -305,7 +305,7 @@ def test_fixed_yaw_scene_and_deterministic_expert():
             yaws[scene].append(current(env)["cube_yaw_deg"])
         env.close()
     assert all(abs(y) < 1e-6 for y in yaws["fixed_yaw"])
-    assert max(yaws["default"]) - min(yaws["default"]) > 30  # stock behaviour unchanged
+    assert max(yaws["random_yaw"]) - min(yaws["random_yaw"]) > 30  # stock behaviour unchanged
     env = make_env(STATE_ENV, scene="fixed_yaw")
     metas = [run_episode(env, STATE_ENV, s, expert="deterministic")[1] for s in range(5)]
     env.close()

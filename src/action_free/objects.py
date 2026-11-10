@@ -15,7 +15,8 @@ only 60% (measured over 200 episodes, 8 November 2026).
 
 Initial states are narrower than stock OCBench (decided 8 November 2026): the cube starts in
 a 20 x 20 cm area beside the goal instead of anywhere on a 42 x 110 cm area, and the arm
-always starts from one pose instead of a random one, as in ACT's simulated tasks.
+always starts from one pose instead of a random one, as in ACT's simulated tasks. The
+project data (10 November 2026) also fixes the cube yaw at 0 (scene `fixed_yaw`).
 """
 
 from __future__ import annotations
@@ -31,10 +32,11 @@ SCENE_KWARGS: dict = {
     # Every episode starts from the same arm pose: effector (x, y, z) in m and yaw, pointing down.
     "arm_init_pose": (0.35, 0.0, 0.30, 0.0),
 }
-# Named scene variants. "fixed_yaw" keeps every cube at yaw 0, like ACT's simulated tasks.
+# Scenes. The project uses "fixed_yaw" (every cube at yaw 0, like ACT's simulated tasks);
+# "random_yaw" is stock OCBench's uniform yaw, kept for the stochastic reference data.
 SCENES: dict[str, dict] = {
-    "default": SCENE_KWARGS,
     "fixed_yaw": {**SCENE_KWARGS, "object_yaw_range": (0.0, 0.0)},
+    "random_yaw": SCENE_KWARGS,
 }
 
 
@@ -59,7 +61,7 @@ OBJECTS: dict[str, ObjectSpec] = {
 }
 
 
-def env_kwargs(name: str, scene: str = "default") -> dict:
+def env_kwargs(name: str, scene: str = "fixed_yaw") -> dict:
     """OCBench environment arguments for an object: a named scene plus the object."""
     if scene not in SCENES:
         raise KeyError(f"Unknown scene {scene!r}; choose from {sorted(SCENES)}.")

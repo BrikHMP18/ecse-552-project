@@ -25,7 +25,7 @@ def main() -> None:
     parser.add_argument("--env-name", default="visual-block-cpu-lite-single-task1-v0")
     parser.add_argument("--object", default="source", choices=sorted(OBJECTS))
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--scene", default="default")
+    parser.add_argument("--scene", default="fixed_yaw")
     parser.add_argument("--out", type=Path, default=Path("outputs/cameras.png"))
     parser.add_argument("--gap", type=int, default=10, help="Pixels between views.")
     args = parser.parse_args()

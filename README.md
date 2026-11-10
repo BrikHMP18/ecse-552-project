@@ -12,11 +12,12 @@ trains on both. Plan, methods (a)–(f), requirements R1–R6: [proposal](docs/p
 
 ## Status (10 November 2026)
 
-- **Project data: ACT-like `clean`** (cube yaw fixed at 0, deterministic expert), for every
-  method and object. Published: source, held-out source test and target A; the stock
-  variant (random yaw, OCBench expert with detours and random speed) is kept for reference.
+- **Project data: `deterministic` demonstrations** (cube yaw fixed at 0; expert without
+  detours, at fixed speed), for every method and object. Published: source, held-out source
+  test and target A. The `stochastic` variant (stock OCBench: random yaw, detours, random
+  speed) is kept for reference.
 - Baseline (a) with the **original ACT** (`third_party/act`, unmodified), 300 demos, seed 0:
-  **99% on the source cube with images only**, 7% on target A (stock data: 53% and 0%).
+  **99% on the source cube with images only**, 7% on target A (stochastic data: 53% and 0%).
   Results: [docs/experiments/act_original.md](docs/experiments/act_original.md).
 - Not yet: IDM (`idm.py`), DANN, targets B–D.
 
@@ -39,21 +40,20 @@ If torch then cannot load `libcudnn`, recreate the env: `rm -rf .venv && uv sync
 
 ```bash
 # Collect (seeds: configs/data.toml), check, publish
-MUJOCO_GL=egl uv run python scripts/collect_demos.py --scene fixed_yaw --expert deterministic \
-  --object source --num-episodes 300 --base-seed 0 --out-dir data/source-clean-n300-seed0
-MUJOCO_GL=egl uv run python scripts/replay_episode.py data/source-clean-n300-seed0/episode_00000.npz
-uv run python scripts/view_episode.py data/source-clean-n300-seed0 --episodes 0 1 2
-uv run python scripts/upload_dataset_hf.py data/source-clean-n300-seed0 data/A-clean-n200-seed100000
+MUJOCO_GL=egl uv run python scripts/collect_demos.py --object source --num-episodes 300 --base-seed 0
+MUJOCO_GL=egl uv run python scripts/replay_episode.py data/source-deterministic-n300-seed0/episode_00000.npz
+uv run python scripts/view_episode.py data/source-deterministic-n300-seed0 --episodes 0 1 2
+uv run python scripts/upload_dataset_hf.py data/source-deterministic-n300-seed0 data/A-deterministic-n200-seed100000
 
 # Train original ACT on Modal (pushes checkpoints to HF)
 modal run scripts/modal_train.py --smoke
-modal run --detach scripts/modal_train.py --config configs/act_clean.toml --num-episodes 300 --seeds 0,1,2
+modal run --detach scripts/modal_train.py --num-episodes 300 --seeds 0,1,2
 
 # Select (validation rollouts), test once, diagnose
-hf download Autobrik/ecse552-act-clean --local-dir outputs/act_clean
-MUJOCO_GL=egl uv run python scripts/select_checkpoint.py outputs/act_clean/n300/seed*
-MUJOCO_GL=egl uv run python scripts/evaluate_policy.py outputs/act_clean/n300/seed0/selected.ckpt --object A
-MUJOCO_GL=egl uv run python scripts/diagnose_failures.py outputs/act_clean/n300/seed0/selected.ckpt
+hf download Autobrik/ecse552-act-deterministic --local-dir outputs/act_deterministic
+MUJOCO_GL=egl uv run python scripts/select_checkpoint.py outputs/act_deterministic/n300/seed*
+MUJOCO_GL=egl uv run python scripts/evaluate_policy.py outputs/act_deterministic/n300/seed0/selected.ckpt --object A
+MUJOCO_GL=egl uv run python scripts/diagnose_failures.py outputs/act_deterministic/n300/seed0/selected.ckpt
 ```
 
 Modal access: ask Brik. Runs that publish require a clean working tree.
@@ -62,7 +62,8 @@ Modal access: ask Brik. Runs that publish require a clean working tree.
 
 Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 
-- **Data:** the ACT-like `clean` collections for every method and object.
+- **Data:** the `deterministic` collections (scene `fixed_yaw`, expert `deterministic`) for
+  every method and object; the `stochastic` ones (stock OCBench) are a reference.
 - **R2:** 100 source demos if they reach 80% on validation rollouts, else 300 (proposal).
 - **ACT:** upstream code and hyperparameters; chunk 20 (2 s at 10 Hz), 2,000 epochs, upstream's
   random 80/20 episode split, absolute joint targets as actions, temporal ensembling (k = 0.01)
@@ -79,7 +80,7 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 |---|---|
 | Episodes (`.npz`) | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block) |
 | LeRobot copies (visualizer) | [ecse552-ocbench-source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [ecse552-ocbench-A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A) |
-| ACT checkpoints | [ecse552-act-clean](https://huggingface.co/Autobrik/ecse552-act-clean) (project data), [-act-original](https://huggingface.co/Autobrik/ecse552-act-original), [-act-clean-proprio](https://huggingface.co/Autobrik/ecse552-act-clean-proprio) |
+| ACT checkpoints | [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic) (project data), [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
 | Training curves | W&B `mu-robotics/ecse552` |
 
 Each collection records every seed, the scene and the expert's deliberate detours
@@ -102,10 +103,10 @@ only (R1); simulator state is never a model input (R3).
 
 | Step | Owner |
 |---|---|
-| Baseline (a) on `clean`: R2 check with 100 demos (running), 3 seeds, test on source and A | Brik |
+| Baseline (a): R2 check with 100 demos (running), 3 seeds, test on source and A | Brik |
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); pseudo-labels for (b) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d) and augmentation (e) with original ACT, from `configs/act_clean.toml` | Gonzalo |
+| Oracle (d) and augmentation (e) with original ACT, from `configs/act_deterministic.toml` | Gonzalo |
 | Targets B, C: geometry and grasps in the OCBench fork | Brik |
 
 ## Collaborating
@@ -121,7 +122,7 @@ only (R1); simulator state is never a model input (R3).
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload, modal_train, select, evaluate, diagnose, render
-configs/           data.toml (seeds, protocol, dataset revision), act_clean.toml (project), act_*.toml
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (project), act_stochastic.toml, act_deterministic_proprio.toml
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```

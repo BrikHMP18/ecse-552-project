@@ -202,8 +202,8 @@ def describe_split(dataset_dir: Path, source_dir: Path, split: dict) -> dict:
     return {
         "source_dir": str(source_dir),
         "object": manifest["config"]["object_name"],
-        "scene_name": manifest["config"].get("scene", "default"),
-        "expert": manifest["config"].get("expert", "ocbench"),
+        "scene_name": manifest["config"].get("scene", "random_yaw"),
+        "expert": manifest["config"].get("expert", "stochastic"),
         "scene": manifest["object"]["env_kwargs"],
         "train_files": train_files,
         "val_files": [index[i]["file"] for i in split.get("val", [])],

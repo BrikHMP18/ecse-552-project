@@ -9,8 +9,8 @@ Rotate/zoom with the mouse, pause with space, Tab / Shift+Tab for the side panel
 Ctrl+drag during a replay: it applies forces to the scene and changes the outcome. The window stays
 on the last frame until you close it (or pass --close-when-done).
 
-    uv run python scripts/view_episode.py data/source-n300-seed0/episode_00000.npz
-    uv run python scripts/view_episode.py data/A-n200-seed100000 --episodes 0 1 2 --speed 0.5
+    uv run python scripts/view_episode.py data/source-deterministic-n300-seed0/episode_00000.npz
+    uv run python scripts/view_episode.py data/A-deterministic-n200-seed100000 --episodes 0 1
 
 Needs a display (not MUJOCO_GL=egl).
 """

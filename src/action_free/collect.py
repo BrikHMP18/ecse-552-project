@@ -30,11 +30,12 @@ import numpy as np
 
 from action_free.objects import env_kwargs, get_object
 
-# Scripted-expert variants: OCBench's default (deliberate detours with p = 0.1, random speed)
-# and a deterministic one (no detours, fixed speed), like ACT's scripted demonstrations.
+# Scripted experts. The project uses "deterministic" (no deliberate detours, fixed speed,
+# like ACT's scripted demonstrations); "stochastic" is stock OCBench's (detours with p = 0.1
+# per subgoal, random speed), kept for the reference data.
 EXPERTS: dict[str, dict] = {
-    "ocbench": {},
     "deterministic": {"p_mistake": 0.0, "speed_profile": (1.0, 1.0, 1.0)},
+    "stochastic": {},
 }
 
 DEFAULT_ENV = "visual-block-cpu-lite-single-task1-v0"
@@ -51,15 +52,15 @@ class CollectConfig:
     terminate_at_success: bool = True
     max_attempts_factor: int = 3
     role: str = "train"  # "test": held-out collection, never trained on or selected with
-    scene: str = "default"  # objects.SCENES
-    expert: str = "ocbench"  # EXPERTS
+    scene: str = "fixed_yaw"  # objects.SCENES
+    expert: str = "deterministic"  # EXPERTS
 
 
 def make_env(
     env_name: str,
     object_name: str = "source",
     terminate_at_success: bool = True,
-    scene: str = "default",
+    scene: str = "fixed_yaw",
 ):
     """Make a CPU OCBench environment showing the named object in a named scene."""
     import ocbench
@@ -71,7 +72,7 @@ def make_env(
     )
 
 
-def make_expert(env, env_name: str, expert: str = "ocbench"):
+def make_expert(env, env_name: str, expert: str = "deterministic"):
     name = env_name.removeprefix("visual-")
     if not name.startswith("block-"):
         raise ValueError(f"Only block environments are supported, got {env_name}.")
@@ -80,7 +81,7 @@ def make_expert(env, env_name: str, expert: str = "ocbench"):
     return BlockController(env=env, **EXPERTS[expert])
 
 
-def run_episode(env, env_name: str, seed: int, expert: str = "ocbench") -> tuple[dict, dict]:
+def run_episode(env, env_name: str, seed: int, expert: str = "deterministic") -> tuple[dict, dict]:
     """Roll out the scripted expert from the initial state fixed by `seed`."""
     np.random.seed(seed)  # The OCBench expert samples from NumPy's global RNG.
     ob, info = env.reset(seed=seed)

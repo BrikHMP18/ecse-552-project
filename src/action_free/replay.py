@@ -20,10 +20,10 @@ from action_free.collect import make_env
 def episode_object(episode_path: Path) -> tuple[str, str, str]:
     """Environment name, object and scene of an episode, from its directory's manifest."""
     cfg = json.loads((Path(episode_path).parent / "manifest.json").read_text())["config"]
-    return cfg["env_name"], cfg["object_name"], cfg.get("scene", "default")
+    return cfg["env_name"], cfg["object_name"], cfg.get("scene", "random_yaw")
 
 
-def replay(episode: dict, env_name: str, object_name: str, scene: str = "default") -> dict:
+def replay(episode: dict, env_name: str, object_name: str, scene: str = "fixed_yaw") -> dict:
     """Step the recorded actions from the recorded seed; return replayed arrays and checks."""
     seed = int(episode["seed"])
     actions = np.asarray(episode["actions"])

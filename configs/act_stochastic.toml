@@ -1,8 +1,8 @@
-# Baselines with the original ACT (third_party/act, unmodified; adapter: src/action_free/act_original.py).
-# Values follow the ACT README command for sim_transfer_cube_scripted, except where noted.
+# Reference only: act_deterministic.toml on the stochastic data (stock OCBench: random cube
+# yaw, expert with deliberate detours and random speed). Not part of the method comparison.
 
-data_dir = "data/source-n300-seed0"   # source collection; the launcher's --num-episodes sets N
-num_episodes = 300                    # R2 (docs/experiments/act_baseline_a.md); sweeps override it
+data_dir = "data/source-stochastic-n300-seed0"   # --scene random_yaw --expert stochastic
+num_episodes = 300                    # R2 (configs/data.toml [protocol]); the launcher's --num-episodes overrides it
 exclude_detours = false               # true: drop demos with deliberate expert detours
 
 num_epochs = 2000      # README value (one epoch = one sampled step per training episode)

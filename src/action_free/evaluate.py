@@ -168,7 +168,7 @@ def _git(*args: str) -> str:
 
 
 def compare_to_training(
-    train_data: dict | None, object_name: str, episodes: list[dict], scene_name: str = "default"
+    train_data: dict | None, object_name: str, episodes: list[dict], scene_name: str = "fixed_yaw"
 ) -> dict:
     """Mark each episode's start against the training distribution; summarize differences."""
     if not train_data:
@@ -213,7 +213,7 @@ def compare_to_training(
 def evaluate(cfg: EvalConfig, log=print) -> dict:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     policy = load_policy(cfg.checkpoint, device)
-    scene = cfg.scene or (policy.run.get("data") or {}).get("scene_name") or "default"
+    scene = cfg.scene or (policy.run.get("data") or {}).get("scene_name") or "random_yaw"
     env = make_env(cfg.env_name, cfg.object_name, scene=scene)
     out = Path(cfg.out_dir) if cfg.out_dir else None
     if out:

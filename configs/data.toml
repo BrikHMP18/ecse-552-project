@@ -17,19 +17,19 @@ validation = 900_000         # rollouts for checkpoint selection and the R2 deci
 test = 1_000_000             # final rollouts: each selected checkpoint once, every object
 
 [collections]
-# Project data (decided 10 November 2026): ACT-like, collected with
-# --scene fixed_yaw --expert deterministic (cube yaw 0, no deliberate detours, fixed speed).
-source = "data/source-clean-n300-seed0"
-source_test = "data/source-clean-test-n50-seed50000"
-A = "data/A-clean-n200-seed100000"
-# Reference only (stock scene and expert: random yaw, detours, random speed); same seeds.
-source_default = "data/source-n300-seed0"
-source_test_default = "data/source-test-n50-seed50000"
-A_default = "data/A-n200-seed100000"
+# Project data (decided 10 November 2026): deterministic demonstrations, scene fixed_yaw
+# (cube yaw 0) and expert deterministic (no deliberate detours, fixed speed): the collector's defaults.
+source = "data/source-deterministic-n300-seed0"
+source_test = "data/source-deterministic-test-n50-seed50000"
+A = "data/A-deterministic-n200-seed100000"
+# Reference only: stochastic demonstrations, stock OCBench (random_yaw, stochastic); same seeds.
+source_stochastic = "data/source-stochastic-n300-seed0"
+source_test_stochastic = "data/source-stochastic-test-n50-seed50000"
+A_stochastic = "data/A-stochastic-n200-seed100000"
 
 [protocol]
-data = "ACT-like collections above, for every method and object (10 Nov 2026: original ACT 99% vs 53% on the stock data)"
-policy = "original ACT (third_party/act, unmodified): configs/act_original.toml; robot state zeroed (R3)"
+data = "deterministic collections above, for every method and object (10 Nov 2026: original ACT 99% on them, 53% on the stochastic ones)"
+policy = "original ACT (third_party/act, unmodified): configs/act_deterministic.toml; robot state zeroed (R3)"
 split = "ACT: upstream random 80/20 of episodes (seed 1); IDM: blocks of 10, 8 train / 2 val (data.py)"
 checkpoint = "policy_best.ckpt (lowest validation loss) vs policy_last.ckpt"
 selection = "higher success on 100 source validation rollouts with temporal ensembling, ties to best"
@@ -39,4 +39,4 @@ r2_rule = "proposal: 100 source demos if their selected checkpoint reaches >= 80
 [hub]
 # Public Hugging Face copy of the collections above; training downloads this exact revision.
 dataset = "Autobrik/ecse552-ocbench-block"
-revision = "3d0229e65911bc561020a3597ddc7dfaed01fa7c"
+revision = "6b5e02b6ec6b7a1083479ca57411b3c5295a6021"  # folders renamed 10 Nov 2026; same episodes as 3d0229e

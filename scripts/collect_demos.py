@@ -35,15 +35,18 @@ def main() -> None:
     p.add_argument("--num-episodes", type=int, default=300)
     p.add_argument("--base-seed", type=int, default=0)
     p.add_argument(
-        "--out-dir", type=Path, default=None, help="Default: data/<object>-n<num>-seed<base-seed>"
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="Default: data/<object>-<expert>[-test]-n<num>-seed<base-seed>",
     )
     p.add_argument(
         "--keep-failures",
         action="store_true",
         help="Keep healthy but unsuccessful episodes (default: retry next seed).",
     )
-    p.add_argument("--scene", default="default", choices=sorted(SCENES))
-    p.add_argument("--expert", default="ocbench", choices=sorted(EXPERTS))
+    p.add_argument("--scene", default="fixed_yaw", choices=sorted(SCENES))
+    p.add_argument("--expert", default="deterministic", choices=sorted(EXPERTS))
     p.add_argument(
         "--role",
         choices=("train", "test"),
@@ -57,7 +60,10 @@ def main() -> None:
     )
     a = p.parse_args()
 
-    out_dir = a.out_dir or Path("data") / f"{a.object}-n{a.num_episodes}-seed{a.base_seed}"
+    out_dir = a.out_dir or Path("data") / (
+        f"{a.object}-{a.expert}{'-test' if a.role == 'test' else ''}"
+        f"-n{a.num_episodes}-seed{a.base_seed}"
+    )
     cfg = CollectConfig(
         out_dir=out_dir,
         env_name=a.env_name,

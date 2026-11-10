@@ -1,8 +1,8 @@
 """Pick each ACT run's checkpoint (policy_best or policy_last) with source validation rollouts.
 
-    MUJOCO_GL=egl uv run python scripts/select_checkpoint.py outputs/act_original/n300/seed0
-    MUJOCO_GL=egl uv run python scripts/select_checkpoint.py outputs/act_original/n*/seed0 \
-        --push Autobrik/ecse552-act-original
+    MUJOCO_GL=egl uv run python scripts/select_checkpoint.py outputs/act_deterministic/n300/seed0
+    MUJOCO_GL=egl uv run python scripts/select_checkpoint.py outputs/act_deterministic/n*/seed0 \
+        --push Autobrik/ecse552-act-deterministic
 
 Rolls out both checkpoints on 100 source validation seeds with ACT's temporal ensembling,
 keeps the one with higher success (ties to policy_best.ckpt) and writes selection.json and
