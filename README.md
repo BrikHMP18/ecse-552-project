@@ -133,7 +133,7 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 | | |
 |---|---|
 | Episodes (`.npz`) | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block) |
-| LeRobot copies (visualizer) | [source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A): data of 8 November, not yet refreshed; `scripts/upload_lerobot_hf.py` publishes one per collection (source, source-test, A–D) |
+| LeRobot copies, one per collection (visualizer) | [source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [source-test](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-test), [A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A), [B](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-B), [C](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-C), [D](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-D) |
 | ACT checkpoints | (a) [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic); (d) [-act-oracle-A](https://huggingface.co/Autobrik/ecse552-act-oracle-A), [-B](https://huggingface.co/Autobrik/ecse552-act-oracle-B), [-C](https://huggingface.co/Autobrik/ecse552-act-oracle-C); references: [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
 | Training curves | W&B `mu-robotics/ecse552` |
 
