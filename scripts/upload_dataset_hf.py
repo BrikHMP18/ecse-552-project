@@ -66,8 +66,9 @@ for every object.
 - Initial state: the cube in a 20 x 20 cm area beside the goal (x 0.32-0.52 m,
   y 0.15-0.35 m); the arm always starts from the same pose (effector at (0.35, 0, 0.30) m,
   yaw 0). Scene `fixed_yaw`: cube yaw 0, like ACT's simulated tasks; `random_yaw`: uniform.
-- Expert `deterministic`: OCBench's scripted expert without deliberate mistakes and at a
-  fixed speed; `stochastic`: stock OCBench, with mistakes (`p_mistake` = 0.1 per subgoal:
+- Expert `deterministic`: OCBench's scripted expert without deliberate mistakes, at a
+  fixed speed and without 90-degree grasp turns (since 10 November 2026; earlier revisions
+  turned the cube grasp in 30% of episodes); `stochastic`: stock OCBench, with mistakes (`p_mistake` = 0.1 per subgoal:
   some episodes first carry the cube to a random spot, `num_detours`) and a random speed.
 - `*-deterministic-*` folders (`fixed_yaw` + `deterministic`) are the project data for every
   method; `*-stochastic-*` (`random_yaw` + `stochastic`) are kept for reference.

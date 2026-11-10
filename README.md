@@ -27,10 +27,11 @@ start for every object) and expert settings are shared. Defined in
 
 Targets are action-free videos for every method; their stored actions are only for the
 oracle (d) and evaluation. Blocks come from the fork's `object_size` argument: the 9 cm side
-lies along x, the expert never turns the grasp by 90 degrees (9 cm does not fit the 8.5 cm
-gripper), and success needs the whole block inside the 12 cm square. C and D are grasped
-higher because the gripper linkage hits a 7 cm block at its centre height (47% of episodes
-needed a second grasp attempt; 12% when grasping 2 cm higher, source 7%).
+lies along x, and success needs the whole block inside the 12 cm square. The expert never
+turns the grasp by 90 degrees, for any object (9 cm does not fit the 8.5 cm gripper, so
+cubes do not turn either). C and D are grasped higher because the gripper linkage hits a
+7 cm block at its centre height (47% of episodes needed a second grasp attempt; 12% when
+grasping 2 cm higher, the same as the source).
 
 ```bash
 hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data \
@@ -40,13 +41,16 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 ## Status (10 November 2026)
 
 - **Project data: `deterministic` demonstrations** (cube yaw fixed at 0; expert without
-  detours, at fixed speed), for every method and object. Published: source, held-out source
+  detours, at fixed speed and, since 10 November, without 90° grasp turns), for every method
+  and object; all six collections were re-recorded with the same seeds. Published: source, held-out source
   test and targets A, B, C and D (see [Objects](#objects)). The `stochastic` variant (stock OCBench: random yaw, detours, random
   speed) is kept for reference.
-- Baseline (a) with the **original ACT** (`third_party/act`, unmodified), 300 demos, seed 0:
+- Baseline (a) with the **original ACT** (`third_party/act`, unmodified), 300 demos, seed 0,
+  on the earlier data (grasp turned in 30% of cube episodes):
   **99% on the source cube with images only**, 7% on target A (stochastic data: 53% and 0%).
   Results: [docs/experiments/act_original.md](docs/experiments/act_original.md).
-- Not yet: IDM (`idm.py`), DANN; no policy has been trained or tested on B, C or D.
+- Running: baseline (a) seeds 0–2 and oracle (d) seed 0 for A, B, C on the re-recorded data.
+- Not yet: IDM (`idm.py`), DANN, augmentation (e).
 
 ## Setup
 
@@ -136,7 +140,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 | Actions | absolute joint targets (ACT); OCBench deltas computed by the low-level controller | joint increments |
 | Goal / success | 12 cm gray square; cube inside, resting, released, still for 1 s | within 4 cm |
 | Initial state | cube in a 20 x 20 cm area, yaw fixed at 0; fixed arm pose | OCBench defaults |
-| Expert | OCBench's, without deliberate detours and at fixed speed; blocks grasped across their width (C, D: 2 cm higher) | OCBench's, adapted per object |
+| Expert | OCBench's, without deliberate detours, at fixed speed and without 90° grasp turns (changed after the 100-demo result; R2 stays at 300); blocks grasped across their width (C, D: 2 cm higher) | OCBench's, adapted per object |
 | Baseline policy | original ACT code; checkpoint chosen on validation rollouts | own ACT, fixed steps |
 | R6 | inference < 100 ms per call (measured 10 ms) | < 0.5 s per chunk |
 

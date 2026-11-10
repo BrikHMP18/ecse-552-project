@@ -6,6 +6,11 @@ Runs and data were renamed on 10 November (`act_original` → `act_stochastic`, 
 `act_deterministic`, `clean` data → `deterministic`, unlabeled → `stochastic`); W&B keeps the
 old run names.
 
+> These results are on the data before 10 November 2026 (dataset `3d0229e`), whose
+> "deterministic" expert still turned the cube grasp by ±90° in 30% of episodes. The project
+> data was then re-recorded without grasp turns; results on it are in
+> [baselines.md](baselines.md).
+
 ## Setup
 
 | | |
