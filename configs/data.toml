@@ -43,4 +43,4 @@ r2_decision = "300 source demos for every method (10 Nov 2026: 100 demos reach 3
 [hub]
 # Public Hugging Face copy of the collections above; training downloads this exact revision.
 dataset = "Autobrik/ecse552-ocbench-block"
-revision = "6b5e02b6ec6b7a1083479ca57411b3c5295a6021"  # folders renamed 10 Nov 2026; same episodes as 3d0229e
+revision = "fc44b67797745cce090b8871e7adf7da12fd04cc"  # adds B, C, D (10 Nov 2026); other folders unchanged since 6b5e02b

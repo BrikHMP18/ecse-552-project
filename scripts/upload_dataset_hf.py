@@ -37,7 +37,7 @@ size_categories:
 
 Scripted-expert demonstrations for the McGill ECSE 552 project *Learning to Manipulate a New
 Object from Action-Free Videos* ([code]({project})). A UR5e arm with a Robotiq gripper
-(OCBench, MuJoCo) moves a cube into a goal square, seen by three RGB cameras.
+(OCBench, MuJoCo) moves a cube or block into a goal square, seen by three RGB cameras.
 
 Every episode stores images **and** actions. In the project, actions of target objects
 (everything except `source`) are hidden from every method except the true-action oracle
@@ -49,8 +49,10 @@ and evaluation: those collections stand in for action-free videos.
 |---|---|---|---:|---|---:|---:|---:|---|
 {rows}
 
-`source` is the labeled cube; target A changes only the cube colour. The same seed gives
-the same initial cube and arm state for every object.
+`source` is the labeled red cube. Targets: A changes only the colour (blue cube); B the
+geometry (9 x 6 x 6 cm block, same 6 cm grasp width); C the geometry and the grasp width
+(9 x 7 x 6 cm); D is C in blue. The same seed gives the same initial object and arm state
+for every object.
 
 ## Scene
 
@@ -69,6 +71,9 @@ the same initial cube and arm state for every object.
   some episodes first carry the cube to a random spot, `num_detours`) and a random speed.
 - `*-deterministic-*` folders (`fixed_yaw` + `deterministic`) are the project data for every
   method; `*-stochastic-*` (`random_yaw` + `stochastic`) are kept for reference.
+- Blocks start with the 9 cm side along x. The expert grasps them across the second side
+  (6 or 7 cm), never turned by 90 degrees, and the 7 cm ones 2 cm above the centre (lower,
+  the gripper linkage hits the block). Success uses the block's real footprint.
 - Only successful expert episodes are kept; failed seeds are skipped (see `manifest.json`).
 
 ## Files
