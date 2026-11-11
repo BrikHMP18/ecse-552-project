@@ -190,7 +190,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), references
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```
