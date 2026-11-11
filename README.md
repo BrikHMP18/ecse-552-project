@@ -44,26 +44,31 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 |---|---|---|
 | Data: source and targets A, B, C, D | Done | [Objects](#objects) |
 | (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
-| (d) Oracle: source + target with true actions | Seed 0 done for A, B, C; seeds 1, 2 next | [baselines.md](docs/experiments/baselines.md) |
-| (e) Augmentation: source only, colour jitter | Implemented, not trained | [augmentation.md](docs/experiments/augmentation.md) |
+| (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C; D not trained | [baselines.md](docs/experiments/baselines.md) |
+| (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
 | (b) IDM, (c) DANN | Not started; interface fixed | [Pseudo-labels](#data-and-models), `configs/act_idm_A.toml` |
 
-Test success, 100 rollouts per object. Original ACT (`third_party/act`, unmodified), images
-only, 300 source demos.
+Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
+(`third_party/act`, unmodified), images only, 300 source demos.
 
-| Tested on | (a) Baseline, mean ± std of 3 seeds | (d) Oracle for that target, seed 0 |
-|---|---:|---:|
-| source (red cube) | 90.7 ± 12.1% | - |
-| A (blue cube) | 0.3 ± 0.6% | 70% |
-| B (red 9x6x6 block) | 82.3 ± 16.0% | 86% |
-| C (red 9x7x6 block) | 59.0 ± 20.0% | 3% |
-| D (blue 9x7x6 block) | 0% | not run |
+| Tested on | (a) Baseline | (e) Augmentation | (d) Oracle for that target |
+|---|---:|---:|---:|
+| source (red cube) | 90.7 ± 12.1% | 95.0 ± 5.0% | - |
+| A (blue cube) | 0.3 ± 0.6% | **98.7 ± 1.5%** | 85.7 ± 14.0% |
+| B (red 9x6x6 block) | 82.3 ± 16.0% | 90.7 ± 10.1% | 88.3 ± 5.9% |
+| C (red 9x7x6 block) | 59.0 ± 20.0% | 68.0 ± 16.5% | 46.0 ± 37.5% |
+| D (blue 9x7x6 block) | 0% | **66.7 ± 7.6%** | not run |
 
-- **The gap is colour, not shape**: the baseline fails on the blue objects and transfers to
-  the red blocks. Target A is where (b) and (c) can show a gain.
-- **Oracle C fails**: it grasps 1 cm off-centre and a 7 cm block allows 0.75 cm; cause under
-  study ([baselines.md](docs/experiments/baselines.md), "Why oracle C fails").
-- Success varies a lot between seeds (source: 77%, 100%, 95%); the oracle has one seed.
+- **The baseline's gap is colour, not shape**: it fails on the blue objects and transfers
+  to the red blocks.
+- **Colour jitter alone closes that gap**: (e) uses no target data and reaches 98.7% on A,
+  above the oracle, and 66.7% on D. On A nothing is left for (b) and (c) to gain over (e);
+  the room is on the 7 cm blocks C and D, where no method passes 70%
+  ([augmentation.md](docs/experiments/augmentation.md)).
+- **Oracle C**: seed 0 was a bad run (3%); seeds 1 and 2 reach 72% and 63%, and ACT on C
+  alone 87% on validation. Its mean stays below the baseline, so C gives no usable gap for
+  R4 ([baselines.md](docs/experiments/baselines.md)).
+- Success varies a lot between seeds and checkpoints; compare methods per seed.
 - Project data: the `deterministic` collections (cube yaw fixed at 0; expert without detours,
   at fixed speed and without 90° grasp turns). The `stochastic` ones (stock OCBench) and the
   results on earlier data ([act_original.md](docs/experiments/act_original.md)) are references.
@@ -134,7 +139,7 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 |---|---|
 | Episodes (`.npz`) | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block) |
 | LeRobot copies, one per collection (visualizer) | [source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [source-test](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-test), [A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A), [B](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-B), [C](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-C), [D](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-D) |
-| ACT checkpoints | (a) [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic); (d) [-act-oracle-A](https://huggingface.co/Autobrik/ecse552-act-oracle-A), [-B](https://huggingface.co/Autobrik/ecse552-act-oracle-B), [-C](https://huggingface.co/Autobrik/ecse552-act-oracle-C); references: [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
+| ACT checkpoints | (a) [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic); (d) [-act-oracle-A](https://huggingface.co/Autobrik/ecse552-act-oracle-A), [-B](https://huggingface.co/Autobrik/ecse552-act-oracle-B), [-C](https://huggingface.co/Autobrik/ecse552-act-oracle-C); (e) [-act-augment](https://huggingface.co/Autobrik/ecse552-act-augment); diagnosis [-act-only-C](https://huggingface.co/Autobrik/ecse552-act-only-C); references: [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
 | Training curves | W&B `mu-robotics/ecse552` |
 
 Each collection records every seed, the scene and the expert's deliberate detours
@@ -168,8 +173,9 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 |---|---|
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d): seeds 1 and 2 for A, B, C; diagnosis of C (`configs/act_only_C.toml`); then D | Brik |
-| Augmentation (e): train 3 seeds, test on every object (Brik); review the settings in [augmentation.md](docs/experiments/augmentation.md) (Gonzalo) | Brik, Gonzalo |
+| Oracle (d) for D (needs `configs/act_oracle_D.toml`) | Brik |
+| Augmentation (e): review the settings in [augmentation.md](docs/experiments/augmentation.md) | Gonzalo |
+| Decide which targets anchor (b) and (c), now that (e) solves A | Team |
 
 ## Collaborating
 
