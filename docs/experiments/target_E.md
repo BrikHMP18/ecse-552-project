@@ -114,11 +114,13 @@ Test success, 100 rollouts per seed (seeds 1,000,000+), one test per selected ch
 |---|---:|---:|---:|---:|---:|---:|
 | (a) Baseline | 0% | 0% | 0% | 0.0% | 0.0 | [0.0, 1.3] |
 | (e) Augmentation | 0% | 1% | 0% | 0.3% | 0.6 | [0.1, 1.9] |
-| (d) Oracle E | pending | pending | pending | | | |
+| (d) Oracle E | 87% | 97% | 83% | 89.0% | 7.2 | [85.0, 92.1] |
+| (d) Oracle E, on source | 94% | 91% | 94% | 93.0% | 1.7 | [89.5, 95.4] |
 
 - Neither source-only method solves E: the policy must be shown the turned grasp.
-- Oracle E (`configs/act_oracle_E.toml`, source + E with true actions, seeds 0, 1, 2) was
-  launched on Modal on 11 November 2026 at 02:44. When it ends: select each checkpoint on
-  100 source validation rollouts and test it once on E and on source, as for the other
-  oracles ([baselines.md](baselines.md)).
-- E is a usable target only if the oracle is clearly above 0%; the expert's 93.9% bounds it.
+- Oracle E (`configs/act_oracle_E.toml`, source + E with true actions; model repo
+  `Autobrik/ecse552-act-oracle-E`) reaches 89.0%, close to the expert's 93.9%, and keeps the
+  source (93.0%, within R5). All three seeds selected `policy_last`
+  ([baselines.md](baselines.md)).
+- **E is a usable target**: the oracle is 89 points above the best source-only method
+  (26 points on D, none on A), and (e) covers none of that gap (G_T = 0.00).

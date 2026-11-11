@@ -40,13 +40,13 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
     --revision <[hub] revision in configs/data.toml> --include "C-deterministic-*/*"
 ```
 
-## Status (10 November 2026)
+## Status (11 November 2026)
 
 | Method | State | Where |
 |---|---|---|
 | Data: source and targets A, B, C, D, E | Done | [Objects](#objects) |
 | (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
-| (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D; E training | [baselines.md](docs/experiments/baselines.md) |
+| (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D, E | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
 | (b) IDM, (c) DANN | Not started; interface fixed | [Pseudo-labels](#data-and-models), `configs/act_idm_A.toml` |
 
@@ -60,7 +60,7 @@ Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 | B (red 9x6x6 block) | 82.3 ± 16.0% | 90.7 ± 10.1% | 88.3 ± 5.9% |
 | C (red 9x7x6 block) | 59.0 ± 20.0% | 68.0 ± 16.5% | 46.0 ± 37.5% |
 | D (blue 9x7x6 block) | 0% | **66.7 ± 7.6%** | 92.7 ± 4.2% |
-| E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | training |
+| E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | **89.0 ± 7.2%** |
 
 - **The baseline's gap is colour, not shape**: it fails on the blue objects and transfers
   to the red blocks.
@@ -68,8 +68,8 @@ Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
   above the oracle, and 66.7% on D. On A nothing is left for (b) and (c) to gain over (e);
   on D the oracle is 26 points above it ([augmentation.md](docs/experiments/augmentation.md)).
 - **Target E changes the behaviour, not the appearance**: its 9 cm side does not fit the
-  gripper, so the grasp must turn by 90°. Baseline and augmentation both fail (0%, 0.3%);
-  only target videos can show the turn ([target_E.md](docs/experiments/target_E.md)).
+  gripper, so the grasp must turn by 90°. Baseline and augmentation both fail (0%, 0.3%)
+  and the oracle reaches 89.0%: only target data can show the turn ([target_E.md](docs/experiments/target_E.md)).
 - **Oracle C**: seed 0 was a bad run (3%); seeds 1 and 2 reach 72% and 63%, and ACT on C
   alone 87% on validation. Its mean stays below the baseline, so C gives no usable gap for
   R4 ([baselines.md](docs/experiments/baselines.md)).
@@ -180,7 +180,6 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 |---|---|
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d) for E: test and write up when the runs end | Brik |
 | Augmentation (e): review the settings in [augmentation.md](docs/experiments/augmentation.md) | Gonzalo |
 | Targets for (b) and (c): A as a check of the pipeline, then D and E, where (e) leaves room; first measure the IDM label error on E ([target_E.md](docs/experiments/target_E.md)) | Team |
 

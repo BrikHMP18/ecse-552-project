@@ -51,8 +51,8 @@
   oracle trained with the target's true actions (85.7\%). Appearance shifts therefore do
   not need target videos. We added a target that changes the behaviour instead: a block
   that only fits the gripper after a $90^\circ$ turn, where both source-only policies fail
-  (0\% and 0.3\%).
-  \todo{Oracle on that target; results of the IDM methods against the baselines, R4 and
+  (0\% and 0.3\%) and the oracle reaches 89.0\%.
+  \todo{Results of the IDM methods against the baselines, R4 and
   R5, and the conclusion.}
 \end{abstract}
 
@@ -513,8 +513,8 @@ Optional method (f) moves the alignment from the IDM to the policy's encoder
 % C9: quantitative results and how the design meets the C4 constraints.
 % C10: quantitative comparison against alternatives on C4.
 Measured, with three seeds each: the source-only baseline (a) and the augmentation
-baseline (e) on every object, and the oracle (d) for targets A, B, C and D. Oracle E and
-the methods that use target videos, (b) and (c), are pending. Figure~\ref{fig:results}
+baseline (e) on every object, and the oracle (d) for every target. The methods that use
+target videos, (b) and (c), are pending. Figure~\ref{fig:results}
 gives the overview; the tables give every seed.
 
 \begin{figure}[t]
@@ -522,7 +522,7 @@ gives the overview; the tables give every seed.
   \includegraphics[width=\linewidth]{figures/results.png}
   \caption{Test success per object: mean of three seeds (bars and numbers), standard
   deviation (lines) and each seed (dots), 100 rollouts per seed. The oracle is the one
-  trained for that target. \todo{Add (b) and (c); oracle E.}}
+  trained for that target. \todo{Add (b) and (c).}}
   \label{fig:results}
 \end{figure}
 
@@ -562,11 +562,12 @@ report, well inside the R6 budget.
 
 \subsection{Oracle (d)}
 Table~\ref{tab:oracle} reports the oracle. With the true actions of the target the policy
-reaches 85.7\% on A and 92.7\% on D, from 0.3\% and 0\%, and keeps the source within R5 in
+reaches 85.7\% on A, 92.7\% on D and 89.0\% on E, from 0.3\%, 0\% and 0\%, and keeps the source within R5 in
 every case (87.0\% to 96.3\% against 90.7\%). On B the oracle (88.3\%) is within the
 baseline's spread (82.3 $\pm$ 16.0\%), so B leaves little room for any method. On C the
 oracle's mean (46.0\%) is below the baseline's (59.0\%): R4 is inconclusive for C by the
-rule of Section~\ref{sec:evaluation}. \todo{Oracle E.}
+rule of Section~\ref{sec:evaluation}. On E the oracle is close to the expert's own
+success (93.9\%): the turned grasp is learnable from 200 episodes, so E is a usable target.
 
 \begin{table}[t]
   \caption{Oracle (d): source plus 200 target episodes with true actions. Test success
@@ -586,8 +587,8 @@ rule of Section~\ref{sec:evaluation}. \todo{Oracle E.}
     C & Source & 67\% & 100\% & 94\% & 87.0\% & 17.6 & [82.7, 90.3] \\
     D & D & 88\% & 96\% & 94\% & \textbf{92.7\%} & 4.2 & [89.1, 95.1] \\
     D & Source & 96\% & 100\% & 93\% & 96.3\% & 3.5 & [93.6, 97.9] \\
-    E & E & \todo{} & \todo{} & \todo{} & \todo{} & & \\
-    E & Source & \todo{} & \todo{} & \todo{} & \todo{} & & \\
+    E & E & 87\% & 97\% & 83\% & \textbf{89.0\%} & 7.2 & [85.0, 92.1] \\
+    E & Source & 94\% & 91\% & 94\% & 93.0\% & 1.7 & [89.5, 95.4] \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -706,8 +707,8 @@ trained on the 400 demonstrations, tested on E.}
 
 \subsection{Checkpoint selection and training curves}
 Figure~\ref{fig:selection} shows, for every run, the source validation success of its two
-checkpoints. The lowest-loss checkpoint was selected in 8 of 18 runs and the last one in
-10, with differences of up to 79 points. Figure~\ref{fig:losses} shows why the loss
+checkpoints. The lowest-loss checkpoint was selected in 8 of 21 runs and the last one in
+13, with differences of up to 79 points. Figure~\ref{fig:losses} shows why the loss
 cannot choose: the validation loss flattens after about 1,000 epochs while success keeps
 changing. With augmentation the training loss stays close to the validation loss.
 
@@ -740,7 +741,7 @@ Table~\ref{tab:r4} the requirement R4 for (e).
 \begin{table}[t]
   \caption{Test success on each target and on the source (mean over three seeds, 100
   rollouts each). (a) and (e) use no target, so their source column is one number; for (d)
-  it is the range over the oracles for A to D.}
+  it is the range over the oracles for A to E.}
   \label{tab:main}
   \centering
   \small
@@ -752,7 +753,7 @@ Table~\ref{tab:r4} the requirement R4 for (e).
     (e) & Augmentation & \textbf{98.7\%} & \textbf{90.7\%} & \textbf{68.0\%} & 66.7\% & 0.3\% & 95.0\% \\
     (b) & Unadapted IDM & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
     (c) & DANN-adapted IDM & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
-    (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & \todo{} & 87.0--96.3\% \\
+    (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & \textbf{89.0\%} & 87.0--96.3\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -771,14 +772,14 @@ Table~\ref{tab:r4} the requirement R4 for (e).
     B & 6.0 points & 8.4 points & 1.40 & Met; the gap is within the seed spread \\
     C & $-13.0$ points & 9.0 points & -- & Inconclusive (oracle below baseline) \\
     D & 92.7 points & 66.7 points & 0.72 & Met \\
-    E & \todo{} & 0.3 points & \todo{} & \todo{} \\
+    E & 89.0 points & 0.3 points & 0.00 & Not met \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 The augmentation baseline meets R4 on A, B and D without target data, and R5 on the
 source. On A it leaves nothing to gain. The room for methods that use target videos is on
-D, 26 points between (e) and the oracle, and on E, where (e) gains nothing.
+D, 26 points between (e) and the oracle, and on E, 89 points, where (e) gains nothing.
 \todo{R4 ($G_T$) and R5 per target for (b) and (c); (b) against (c); (c) against (e);
 latency of every method (R6); negative transfer if alignment hurts.}
 

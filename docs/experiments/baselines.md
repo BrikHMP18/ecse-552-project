@@ -10,7 +10,7 @@ target with their true actions. These two bound the methods that use target vide
 | | |
 |---|---|
 | Data | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block), `[hub] revision` in [`configs/data.toml`](../../configs/data.toml): `deterministic` collections re-recorded on 10 November without 90° grasp turns (OCBench fork `148a7b8`) |
-| Configs | `configs/act_deterministic.toml` (a), `configs/act_oracle_{A,B,C,D}.toml` (d), `configs/act_only_C.toml` (diagnosis) |
+| Configs | `configs/act_deterministic.toml` (a), `configs/act_oracle_{A,B,C,D,E}.toml` (d), `configs/act_only_C.toml` (diagnosis) |
 | Training | ACT README settings, chunk 20, 2,000 epochs, upstream 80/20 split; one A10G per run on Modal |
 | Selection | `policy_best` vs `policy_last`, 100 source validation rollouts each (seeds 900,000+), ties to best |
 | Test | each selected checkpoint once, 100 rollouts per object (seeds 1,000,000+), temporal ensembling (k = 0.01) |
@@ -18,7 +18,7 @@ target with their true actions. These two bound the methods that use target vide
 ## Results
 
 Success over 100 test rollouts per object. All runs finished on 10 November 2026; model
-repos `Autobrik/ecse552-act-deterministic`, `Autobrik/ecse552-act-oracle-{A,B,C,D}` and
+repos `Autobrik/ecse552-act-deterministic`, `Autobrik/ecse552-act-oracle-{A,B,C,D,E}` and
 `Autobrik/ecse552-act-only-C`.
 
 ### Baseline (a): source only, 3 seeds
@@ -44,8 +44,10 @@ repos `Autobrik/ecse552-act-deterministic`, `Autobrik/ecse552-act-oracle-{A,B,C,
 | C | source | 67% | 100% | 94% | 87.0% | 17.6 | [82.7, 90.3] | 90.7% |
 | D | D | 88% | 96% | 94% | 92.7% | 4.2 | [89.1, 95.1] | 0.0% |
 | D | source | 96% | 100% | 93% | 96.3% | 3.5 | [93.6, 97.9] | 90.7% |
+| E | E | 87% | 97% | 83% | 89.0% | 7.2 | [85.0, 92.1] | 0.0% |
+| E | source | 94% | 91% | 94% | 93.0% | 1.7 | [89.5, 95.4] | 90.7% |
 
-Oracle D was trained on 11 November 2026 (`configs/act_oracle_D.toml`); oracle E:
+Oracles D and E were trained on 11 November 2026; E is described in
 [target_E.md](target_E.md).
 
 ### Diagnosis: ACT on C alone (`configs/act_only_C.toml`, seed 0)
@@ -77,6 +79,9 @@ Oracle D was trained on 11 November 2026 (`configs/act_oracle_D.toml`); oracle E
 | (d) D seed 0 | 93% (1688) | 95% | last |
 | (d) D seed 1 | 99% (1757) | 94% | best |
 | (d) D seed 2 | 69% (1451) | 90% | last |
+| (d) E seed 0 | 92% (1688) | 97% | last |
+| (d) E seed 1 | 76% (1952) | 84% | last |
+| (d) E seed 2 | 63% (1704) | 98% | last |
 
 ## Reading
 
@@ -92,6 +97,8 @@ Oracle D was trained on 11 November 2026 (`configs/act_oracle_D.toml`); oracle E
 - **The oracle works for D** (0% to 92.7%, source 96.3%), although D has C's shape and grasp:
   the 7 cm block is learnable. D is 26 points above augmentation (66.7%), the largest room
   left for methods that use target videos.
+- **The oracle works for E** (0% to 89.0%, source 93.0%): the turned grasp is learnable,
+  and neither source-only method reaches it (0%, 0.3%).
 - **High variance.** Success moves by tens of points across seeds and between checkpoints
   of one run ((a) seed 1: 100% vs 21%; C alone: 87% vs 18% on C). The Wilson interval pools
   the three seeds' rollouts and does not include that spread; compare methods per seed and

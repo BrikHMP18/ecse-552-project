@@ -56,7 +56,7 @@ Trained on Modal (about 5 h per run), model repo
 | B (red 9x6x6 block) | 96% | 79% | 97% | 90.7% | 10.1 | [86.8, 93.5] | 82.3% | 88.3% |
 | C (red 9x7x6 block) | 78% | 49% | 77% | 68.0% | 16.5 | [62.5, 73.0] | 59.0% | 46.0% |
 | D (blue 9x7x6 block) | 72% | 58% | 70% | **66.7%** | 7.6 | [61.2, 71.8] | 0.0% | 92.7% |
-| E (red 6x9x6 block, turned grasp) | 0% | 1% | 0% | 0.3% | 0.6 | [0.1, 1.9] | 0.0% | pending |
+| E (red 6x9x6 block, turned grasp) | 0% | 1% | 0% | 0.3% | 0.6 | [0.1, 1.9] | 0.0% | 89.0% |
 
 Selection (100 source validation rollouts): `policy_best` in the three seeds, 96% (epoch
 1872), 91% (1932), 98% (1995); `policy_last` 62%, 57%, 70%.
@@ -69,6 +69,6 @@ Selection (100 source validation rollouts): `policy_best` in the three seeds, 96
   red. Once colour is handled, the blue block fails like the red one.
 - **Consequence for (b) and (c)**: on A there is nothing left to gain over (e). On D the
   oracle reaches 92.7%, 26 points above (e): target videos can help there. A target that
-  changes the behaviour, where (e) cannot help at all, is E ([target_E.md](target_E.md)).
+  changes the behaviour, where (e) cannot help at all, is E: oracle 89.0%, (e) 0.3% ([target_E.md](target_E.md)).
 - Limits: one augmentation setting, 3 seeds, and the hue range assumes the target colour is
   unknown but inside the jitter.
