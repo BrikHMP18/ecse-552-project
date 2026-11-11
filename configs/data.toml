@@ -45,4 +45,4 @@ r2_decision = "300 source demos for every method (10 Nov 2026: 100 demos reach 3
 [hub]
 # Public Hugging Face copy of the collections above; training downloads this exact revision.
 dataset = "Autobrik/ecse552-ocbench-block"
-revision = "f7396350f5d70d2d48361fda552028e5a2590774"  # re-recorded without 90-degree grasp turns (10 Nov 2026); fc44b67 had them
+revision = "b50de4d816dfb6bd6487b10ab278042ce3805a91"  # adds target E (11 Nov 2026); other collections as in f739635 (re-recorded without 90-degree grasp turns, 10 Nov)
