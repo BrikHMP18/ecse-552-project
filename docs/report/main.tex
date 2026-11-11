@@ -43,13 +43,17 @@
   (OCBench, UR5e arm), labeled demonstrations exist only for a red source cube; each
   target object has only videos. An inverse dynamics model (IDM), trained on the source
   and adapted to the target with domain-adversarial training (DANN), labels the target
-  videos, and an image-only ACT policy trains on both. So far the two reference policies
-  are measured. The source-only policy reaches $90.7 \pm 12.1\%$ test success on the
-  source cube over three seeds, at 10~ms per inference call. It transfers to red blocks
-  of another shape (82\% and 59\%) but never grasps a blue object (0.3\% and 0\%): the gap
-  to close is colour, not geometry. A policy trained with the true actions of the blue
-  cube reaches 70\% on it (one seed).
-  \todo{Results of the IDM methods against the baselines, R4 and R5, and the conclusion.}
+  videos, and an image-only ACT policy trains on both. The reference policies are
+  measured with three seeds each. The source-only policy reaches $90.7 \pm 12.1\%$ test
+  success on the source cube, transfers to red blocks of another shape (82\% and 59\%)
+  and never grasps a blue object (0.3\% and 0\%). Training the same policy with colour
+  jitter, without any target data, closes that gap: 98.7\% on the blue cube, above the
+  oracle trained with the target's true actions (85.7\%). Appearance shifts therefore do
+  not need target videos. We added a target that changes the behaviour instead: a block
+  that only fits the gripper after a $90^\circ$ turn, where both source-only policies fail
+  (0\% and 0.3\%).
+  \todo{Oracle on that target; results of the IDM methods against the baselines, R4 and
+  R5, and the conclusion.}
 \end{abstract}
 
 \section{Introduction}
@@ -68,7 +72,7 @@ through three RGB cameras (Figure~\ref{fig:scene}).
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{../scene.png}
+  \includegraphics[height=0.78\textheight,keepaspectratio]{../scene.png}
   \caption{Initial state of every object from the same seed, seen by the front, side and
   wrist cameras. The gray square is the goal.}
   \label{fig:scene}
@@ -119,11 +123,13 @@ adapting the IDM to the target before labeling its videos helps.
 \paragraph{Scope.}
 The source is a $6 \times 6 \times 6$~cm red cube. Targets are (A) a blue cube of the
 same size (appearance), (B) a $9 \times 6 \times 6$~cm red block (geometry, same grasp
-width), (C) a $9 \times 7 \times 6$~cm red block (geometry and grasp width) and,
-optionally, (D) a blue version of C. Robot, cameras, lighting and task stay fixed. Human
-videos, large pretrained models and real robots are out of scope.
-Data exist for all four targets; this draft has the source-only baseline on every object
-and the oracle for A, B and C. \todo{Which targets the IDM methods cover.}
+width), (C) a $9 \times 7 \times 6$~cm red block (geometry and grasp width), (D) a blue
+version of C and (E) B's block lying across the gripper, which must be grasped with a
+$90^\circ$ turn (behaviour). E was added after the results of the augmentation baseline
+(Section~\ref{sec:targetE}). Robot, cameras, lighting and task stay fixed. Human videos,
+large pretrained models and real robots are out of scope. This draft has the source-only
+baseline and the augmentation baseline on every object, and the oracle for A, B, C and D.
+\todo{Which targets the IDM methods cover.}
 
 \subsection{Constraints}
 % C4.
@@ -134,8 +140,8 @@ targets; R6 is the real-time condition. R6 was restated when the control rate ch
 call must finish within the 100~ms control period.
 
 \begin{table}[t]
-  \caption{Requirements (C4) and their status in this draft. R4 and R5 need the methods that use
-  target videos.}
+  \caption{Requirements (C4) and their status in this draft. R4 and R5 are filled for
+  the augmentation baseline (e); the methods that use target videos are pending.}
   \label{tab:requirements}
   \centering
   \small
@@ -151,11 +157,12 @@ call must finish within the 100~ms control period.
     R3 & Inputs & No simulator state in any learned model & Images only &
       Met by the policy (robot state zeroed); \todo{IDM} \\
     R4 & Target & Success gain over the source-only policy on each target, as a fraction
-      of the oracle's gain & $\geq 50\%$ of the gap & \todo{R4 per target} \\
+      of the oracle's gain & $\geq 50\%$ of the gap &
+      (e): Table~\ref{tab:r4}; \todo{(b), (c) per target} \\
     R5 & Retention & Drop in source success after adding target data & $\leq 10$ points &
-      \todo{R5 per target} \\
+      (e): no drop (95.0\% against 90.7\%); \todo{(b), (c) per target} \\
     R6 & Real time & Policy inference per call, within one 10~Hz control step (IDM
-      offline) & $< 100$~ms & Met: 10~ms (95th percentile) in every test run \\
+      offline) & $< 100$~ms & Met: 10 to 18~ms (95th percentile) in the 60 test runs \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -167,11 +174,11 @@ call must finish within the 100~ms control period.
 An episode is a sequence of observations $o_t$ (three RGB images) and actions
 $a_t \in \mathbb{R}^7$ (six arm joints and the gripper). The source dataset contains
 labeled transitions, $\mathcal{D}_S = \{(o_t, a_t, o_{t+1})\}$, from $N_S$ demonstrations
-of the source object. Each target $T \in \{\mathrm{A, B, C, D}\}$ has only videos,
+of the source object. Each target $T \in \{\mathrm{A, B, C, D, E}\}$ has only videos,
 $\mathcal{D}_T = \{o_t\}$. Source and target share the robot, the cameras, the task and
 the expert's strategy; they differ in the object's appearance or geometry, so the
 observation distribution shifts and, for geometry changes, the action distribution may
-shift as well.
+shift as well. For target E it must: the grasp is turned.
 
 We seek, for each target, an image-only policy $\pi_T(a_{t:t+H} \mid o_t)$ that predicts a
 chunk of $H$ future actions. Let $s(\pi, X)$ be the closed-loop success rate of policy
@@ -215,17 +222,30 @@ evaluation and label conversion, but is never an input of a learned model (R3).
 \paragraph{Objects.}
 Only the manipulated object changes between domains (Table~\ref{tab:objects}); robot,
 cameras, goal, initial states and expert settings are shared. Blocks lie with their 9~cm
-side along $x$, and success requires the whole block inside the 12~cm square. The gripper
+side along $x$ (along $y$, the closing direction of the gripper, for E), and success
+requires the whole block inside the 12~cm square. The gripper
 opens 8.5~cm, so the expert grasps every block across its shorter side, which leaves
 1.25~cm of clearance per side for a 6~cm object and 0.75~cm for a 7~cm one. Targets C and
 D are grasped 2~cm above the centre: at centre height the gripper linkage hits a 7~cm
 block, and 47\% of episodes needed a second grasp attempt, against 12\% when grasping
-higher (the same rate as the source).
+higher (the same rate as the source). For E the shorter side lies along $x$, so the expert
+turns the grasp by $90^\circ$ (Figure~\ref{fig:targetE}); its success is lower (93.9\%)
+because the placed block ends $0.8 \pm 0.3$~cm off-centre along $y$, where the 9~cm side
+has 1.5~cm of room. Failed attempts are not kept.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../target_E.png}
+  \caption{Expert grasp of target B (top) and of target E (bottom): the same block, lying
+  along or across the gripper. Only E needs the grasp turned by $90^\circ$.}
+  \label{fig:targetE}
+\end{figure}
 
 \begin{table}[t]
   \caption{Objects and collections. Each target collection is 200 action-free videos; its
   stored actions serve only the oracle and evaluation. Demonstrations average 70 to 76
-  steps (about 7~s).}
+  steps (about 7~s). The turned-grasp source collection trains only the IDM
+  (Section~\ref{sec:targetE}).}
   \label{tab:objects}
   \centering
   \small
@@ -239,6 +259,8 @@ higher (the same rate as the source).
     B & $9 \times 6 \times 6$, red & Geometry & 200 & 200,000 & 99.0\% \\
     C & $9 \times 7 \times 6$, red & Geometry, grasp width & 200 & 300,000 & 100\% \\
     D & $9 \times 7 \times 6$, blue & All three & 200 & 400,000 & 100\% \\
+    E & $6 \times 9 \times 6$, red & Behaviour & 200 & 500,000 & 93.9\% \\
+    Source, turned & $6 \times 6 \times 6$, red & (IDM only) & 100 & 600,000 & 100\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -273,7 +295,8 @@ The first deterministic collections kept one more source of variation: the stock
 turns its grasp by $90^\circ$ in 30\% of cube episodes. It can never do so for a block,
 because 9~cm does not fit the gripper, so the source and target B would have differed in
 more than geometry. We removed the turn for every object and recorded all six collections
-again with the same seeds. The rest of the expert's grasp randomness stays (a pick hold,
+again with the same seeds. Target E, added later, is the one object that is always
+grasped turned. The rest of the expert's grasp randomness stays (a pick hold,
 about 1~cm of contact jitter, second attempts). This change was made after the R2 result
 below, which is a deviation from fixing the protocol before any result; the label budget
 was not revisited.
@@ -283,7 +306,8 @@ Episodes are public on the Hugging Face Hub
 (\url{https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block}); training
 downloads a pinned revision, and checkpoints are published in companion model
 repositories. A LeRobot copy \citep{cadene2024lerobot} serves the online visualizer.
-Policies train on Modal with one NVIDIA A10G GPU, about 2~h per ACT run, with curves
+Policies train on Modal with one NVIDIA A10G GPU, about 2 to 3.5~h per ACT run (5~h with
+augmentation, which runs in ACT's single data-loading process), with curves
 logged to Weights~\&~Biases. Rendering and rollouts run on a local GPU. The code is at
 \url{https://github.com/BrikHMP18/ecse-552-project}.
 
@@ -452,10 +476,18 @@ target videos are needed at all: it is the baseline with every training sample a
 \citep{laskin2020rad}. The first setting, fixed before its results, jitters brightness,
 contrast and saturation by $\pm 30\%$, draws the hue over the full circle so that the red
 cube takes every colour, and shifts the image by up to 4 of 224 pixels; one random draw is
-applied to the three cameras alike. Because the baseline's gap is colour
-(Section~\ref{sec:results}), (e) is the strongest alternative on A and D.
-\todo{Confirm the augmentation settings (team review pending).} Optional method (f) moves
-the alignment from the IDM to the policy's encoder \citep{kato2026udail}.
+applied to the three cameras alike (Figure~\ref{fig:augment}). Validation and test images
+are not augmented. \todo{Confirm the augmentation settings (team review pending).}
+Optional method (f) moves the alignment from the IDM to the policy's encoder
+\citep{kato2026udail}.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.62\linewidth]{../augmentation.png}
+  \caption{Augmentation of method (e). First row: an original training frame (front, side,
+  wrist cameras). Other rows: five random draws.}
+  \label{fig:augment}
+\end{figure}
 
 \begin{table}[t]
   \caption{Methods compared. All use the same source demonstrations and ACT policy.}
@@ -480,8 +512,19 @@ the alignment from the IDM to the policy's encoder \citep{kato2026udail}.
 \label{sec:results}
 % C9: quantitative results and how the design meets the C4 constraints.
 % C10: quantitative comparison against alternatives on C4.
-Measured so far: the source-only baseline (a) with three seeds on every object, and the
-oracle (d) with one seed for targets A, B and C. Methods (b), (c) and (e) are pending.
+Measured, with three seeds each: the source-only baseline (a) and the augmentation
+baseline (e) on every object, and the oracle (d) for targets A, B, C and D. Oracle E and
+the methods that use target videos, (b) and (c), are pending. Figure~\ref{fig:results}
+gives the overview; the tables give every seed.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/results.png}
+  \caption{Test success per object: mean of three seeds (bars and numbers), standard
+  deviation (lines) and each seed (dots), 100 rollouts per seed. The oracle is the one
+  trained for that target. \todo{Add (b) and (c); oracle E.}}
+  \label{fig:results}
+\end{figure}
 
 \subsection{Label budget (R2)}
 With 100 source demonstrations the selected checkpoint reaches 37\% success in source
@@ -492,89 +535,76 @@ demonstrations.
 Table~\ref{tab:baseline} reports the baseline on every object. It reaches
 $90.7 \pm 12.1\%$ on the source cube. It transfers to the red blocks (B 82.3\%, C 59.0\%)
 and fails on both blue objects (A 0.3\%, D 0\%), where it almost never lifts the object
-(1 of 199 failures did). The gap that target videos can close is therefore colour (A,
-D), not shape (B, C). Inference takes 10~ms per call (95th percentile) in every test
-run, a tenth of the R6 budget.
+(1 of 199 failures did), and on E (0\%), which it cannot grasp without turning.
+Inference takes 10 to 18~ms per call (95th percentile) over the 60 test runs of this
+report, well inside the R6 budget.
 
 \begin{table}[t]
   \caption{Baseline (a): original ACT, images only, 300 source demonstrations. Test
-  success over 100 rollouts per object and seed.}
+  success over 100 rollouts per object and seed; 95\% Wilson interval over the 300 pooled
+  rollouts.}
   \label{tab:baseline}
   \centering
   \small
-  \begin{tabular}{@{}lrrrrr@{}}
+  \begin{tabular}{@{}lrrrrrr@{}}
     \toprule
-    Test object & Seed 0 & Seed 1 & Seed 2 & Mean & Std \\
+    Test object & Seed 0 & Seed 1 & Seed 2 & Mean & Std & Wilson 95\% \\
     \midrule
-    Source (red cube) & 77\% & 100\% & 95\% & \textbf{90.7\%} & 12.1 \\
-    A (blue cube) & 1\% & 0\% & 0\% & \textbf{0.3\%} & 0.6 \\
-    B (red $9 \times 6 \times 6$ block) & 67\% & 99\% & 81\% & \textbf{82.3\%} & 16.0 \\
-    C (red $9 \times 7 \times 6$ block) & 42\% & 81\% & 54\% & \textbf{59.0\%} & 20.0 \\
-    D (blue $9 \times 7 \times 6$ block) & 0\% & 0\% & 0\% & \textbf{0.0\%} & 0.0 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-Success varies widely between seeds (77\% to 100\% on the source) and between the two
-checkpoints of one run (Table~\ref{tab:selection}): for seed 1 the lowest-loss checkpoint
-reaches 100\% in validation and the final one 21\%.
-
-\begin{table}[t]
-  \caption{Checkpoint selection: success in 100 source validation rollouts of the
-  lowest-validation-loss checkpoint (\emph{best}) and the final one (\emph{last}).}
-  \label{tab:selection}
-  \centering
-  \small
-  \begin{tabular}{@{}lrrl@{}}
-    \toprule
-    Run & best & last & Selected \\
-    \midrule
-    (a) seed 0 & 63\% & 52\% & best \\
-    (a) seed 1 & 100\% & 21\% & best \\
-    (a) seed 2 & 94\% & 95\% & last \\
-    (d) target A, seed 0 & 36\% & 82\% & last \\
-    (d) target B, seed 0 & 94\% & 95\% & last \\
-    (d) target C, seed 0 & 31\% & 60\% & last \\
+    Source (red cube) & 77\% & 100\% & 95\% & \textbf{90.7\%} & 12.1 & [86.8, 93.5] \\
+    A (blue cube) & 1\% & 0\% & 0\% & \textbf{0.3\%} & 0.6 & [0.1, 1.9] \\
+    B (red $9 \times 6 \times 6$ block) & 67\% & 99\% & 81\% & \textbf{82.3\%} & 16.0 & [77.6, 86.2] \\
+    C (red $9 \times 7 \times 6$ block) & 42\% & 81\% & 54\% & \textbf{59.0\%} & 20.0 & [53.4, 64.4] \\
+    D (blue $9 \times 7 \times 6$ block) & 0\% & 0\% & 0\% & \textbf{0.0\%} & 0.0 & [0.0, 1.3] \\
+    E (red $6 \times 9 \times 6$ block) & 0\% & 0\% & 0\% & \textbf{0.0\%} & 0.0 & [0.0, 1.3] \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \subsection{Oracle (d)}
-Table~\ref{tab:oracle} reports the oracle, one seed per target, so these numbers are
-provisional. With the true actions of the blue cube the policy reaches 70\% on A, from
-0.3\%. On B the oracle (86\%) is within the baseline's spread (82.3 $\pm$ 16.0\%), so B
-leaves little room for any method. On C the oracle fails (3\%, below the baseline's
-59.0\%): it is not an upper bound, and R4 is inconclusive for C by the rule of
-Section~\ref{sec:evaluation} unless other seeds differ.
-\todo{Oracle seeds 1 and 2 for A, B and C; oracle for D.}
+Table~\ref{tab:oracle} reports the oracle. With the true actions of the target the policy
+reaches 85.7\% on A and 92.7\% on D, from 0.3\% and 0\%, and keeps the source within R5 in
+every case (87.0\% to 96.3\% against 90.7\%). On B the oracle (88.3\%) is within the
+baseline's spread (82.3 $\pm$ 16.0\%), so B leaves little room for any method. On C the
+oracle's mean (46.0\%) is below the baseline's (59.0\%): R4 is inconclusive for C by the
+rule of Section~\ref{sec:evaluation}. \todo{Oracle E.}
 
 \begin{table}[t]
-  \caption{Oracle (d): source plus 200 target episodes with true actions, seed 0. Test
-  success over 100 rollouts; 95\% Wilson intervals in brackets.}
+  \caption{Oracle (d): source plus 200 target episodes with true actions. Test success
+  over 100 rollouts per seed; 95\% Wilson interval over the 300 pooled rollouts.}
   \label{tab:oracle}
   \centering
   \small
-  \begin{tabular}{@{}lccc@{}}
+  \begin{tabular}{@{}llrrrrrr@{}}
     \toprule
-    Target & On the target & On the source & Baseline (a) on the target, mean \\
+    Target & Tested on & Seed 0 & Seed 1 & Seed 2 & Mean & Std & Wilson 95\% \\
     \midrule
-    A & 70\% [60, 78] & 77\% [68, 84] & 0.3\% \\
-    B & 86\% [78, 91] & 94\% [88, 97] & 82.3\% \\
-    C & 3\% [1, 8] & 67\% [57, 75] & 59.0\% \\
-    D & \todo{} & \todo{} & 0.0\% \\
+    A & A & 70\% & 97\% & 90\% & \textbf{85.7\%} & 14.0 & [81.2, 89.2] \\
+    A & Source & 77\% & 97\% & 87\% & 87.0\% & 10.0 & [82.7, 90.3] \\
+    B & B & 86\% & 84\% & 95\% & \textbf{88.3\%} & 5.9 & [84.2, 91.5] \\
+    B & Source & 94\% & 91\% & 82\% & 89.0\% & 6.2 & [85.0, 92.1] \\
+    C & C & 3\% & 72\% & 63\% & \textbf{46.0\%} & 37.5 & [40.4, 51.7] \\
+    C & Source & 67\% & 100\% & 94\% & 87.0\% & 17.6 & [82.7, 90.3] \\
+    D & D & 88\% & 96\% & 94\% & \textbf{92.7\%} & 4.2 & [89.1, 95.1] \\
+    D & Source & 96\% & 100\% & 93\% & 96.3\% & 3.5 & [93.6, 97.9] \\
+    E & E & \todo{} & \todo{} & \todo{} & \todo{} & & \\
+    E & Source & \todo{} & \todo{} & \todo{} & \todo{} & & \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Why the oracle fails on C.}
-We measured where the gripper is, relative to the object's centre, when it first closes
-(10 validation rollouts per case, Table~\ref{tab:offset}). The oracle for C reaches the
-block at the right height but about 1~cm off-centre along the closing direction, more
-than the 0.75~cm that a 7~cm block allows: one finger lands on the block, the gripper
-closes empty and pushes the block. None of its 97 failed test rollouts lifted the block.
-Both of its checkpoints show the offset, and its training losses are normal. The same
-policy uses C's grasp height on the source cube, so it does not tell the two red objects
-apart. \todo{Cause of the offset, and whether it is specific to this seed.}
+\paragraph{Oracle C, seed 0.}
+Seed 0 of the oracle for C reaches 3\% on C. We measured where the gripper is, relative to
+the object's centre, when it first closes (10 validation rollouts per case,
+Table~\ref{tab:offset}). That policy reaches the block at the right height but about 1~cm
+off-centre along the closing direction, more than the 0.75~cm that a 7~cm block allows:
+one finger lands on the block, the gripper closes empty and pushes the block. None of its
+97 failed test rollouts lifted the block. Two checks show that this is a bad run and not a
+property of C. Seeds 1 and 2 of the same configuration reach 72\% and 63\%. A policy
+trained on C alone (200 episodes, true actions, one seed; a diagnosis, not a method)
+reaches 87\% on C in validation with its lowest-loss checkpoint, and 18\% with its last
+one. Seed 0 was weak everywhere: 60\% in source validation against 97\% and 98\% for the
+other seeds. The narrow clearance still makes C fragile. The offsets of seeds 1 and 2 were
+not measured.
 
 \begin{table}[t]
   \caption{Gripper position relative to the object's centre when the gripper first
@@ -597,35 +627,160 @@ apart. \todo{Cause of the offset, and whether it is specific to this seed.}
   \end{tabular}
 \end{table}
 
-\subsection{Inverse dynamics model}
-\todo{Table: IDM error per action component on held-out source transitions, and
-pseudo-label error on each target, for $\lambda = 0$ (b) and DANN (c); three seeds.}
-
-\subsection{Comparison with alternatives}
-Table~\ref{tab:main} will hold the comparison on the C4 constraints (C9, C10).
+\subsection{Augmentation (e)}
+Table~\ref{tab:augment} reports the source-only policy trained with augmented images.
+Without any target data it reaches 98.7\% on the blue cube, above the oracle (85.7\%), and
+66.7\% on the blue block D, from 0\%. It does not cost source success (95.0\% against
+90.7\%). On D it is level with the red block of the same shape (C, 68.0\%): once colour
+is handled, what remains is the 7~cm grasp, and there the oracle is 26 points higher
+(92.7\%). On E it fails like the baseline (0.3\%).
 
 \begin{table}[t]
-  \caption{Test success on each target and on the source after training with that target
-  (mean over three seeds, 100 rollouts each), from which R4 and R5 follow. (a) uses no
-  target, so its source column is one number. \todo{Fill; (d) is seed 0 only.}}
-  \label{tab:main}
+  \caption{Augmentation (e): source only, augmented training images. Test success over 100
+  rollouts per object and seed; 95\% Wilson interval over the 300 pooled rollouts.}
+  \label{tab:augment}
   \centering
   \small
-  \begin{tabular}{@{}l@{\hspace{4pt}}lccccc@{}}
+  \begin{tabular}{@{}lrrrrrr@{}}
     \toprule
-    & Method & A & B & C & D & Source \\
+    Test object & Seed 0 & Seed 1 & Seed 2 & Mean & Std & Wilson 95\% \\
     \midrule
-    (a) & Source only & 0.3\% & 82.3\% & 59.0\% & 0.0\% & 90.7\% \\
-    (b) & Unadapted IDM & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
-    (c) & DANN-adapted IDM & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
-    (d) & Oracle (seed 0) & 70\% & 86\% & 3\% & \todo{} & 77 / 94 / 67\% \\
-    (e) & Augmentation & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
+    Source (red cube) & 95\% & 90\% & 100\% & \textbf{95.0\%} & 5.0 & [91.9, 96.9] \\
+    A (blue cube) & 97\% & 100\% & 99\% & \textbf{98.7\%} & 1.5 & [96.6, 99.5] \\
+    B (red $9 \times 6 \times 6$ block) & 96\% & 79\% & 97\% & \textbf{90.7\%} & 10.1 & [86.8, 93.5] \\
+    C (red $9 \times 7 \times 6$ block) & 78\% & 49\% & 77\% & \textbf{68.0\%} & 16.5 & [62.5, 73.0] \\
+    D (blue $9 \times 7 \times 6$ block) & 72\% & 58\% & 70\% & \textbf{66.7\%} & 7.6 & [61.2, 71.8] \\
+    E (red $6 \times 9 \times 6$ block) & 0\% & 1\% & 0\% & \textbf{0.3\%} & 0.6 & [0.1, 1.9] \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\todo{R4 ($G_T$) and R5 per target and method; (b) against (c); (e) against (c); latency
-of every method (R6); negative transfer if alignment hurts.}
+\subsection{A target that changes the behaviour (E)}
+\label{sec:targetE}
+Because (e) solves the appearance shift, we looked for a target where it cannot help. We
+ran the trained checkpoints of (a) and (e) on four candidate objects
+(Table~\ref{tab:screening}). The augmented policy handles every change of appearance,
+including a texture and gray levels that the jitter never produces. Only the block that
+needs another grasp defeats every policy; it became target E. E was chosen after seeing
+these results.
+
+\begin{table}[t]
+  \caption{Screening of candidate targets: success of the three seeds of (a) and (e) over
+  20 validation rollouts each (about $\pm 20$ points per value). No training and no test
+  seeds were used.}
+  \label{tab:screening}
+  \centering
+  \small
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Candidate & (a) Source only & (e) Augmentation \\
+    \midrule
+    Cube with a black and white checker texture & 0, 0, 0\% & 100, 100, 85\% \\
+    Black cube & 0, 0, 0\% & 80, 70, 75\% \\
+    White cube & 0, 0, 0\% & 80, 90, 60\% \\
+    Red $6 \times 9 \times 6$ block (9~cm side across the gripper) & 0, 0, 0\% & 0, 0, 0\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Wrist angles and the IDM.}
+The IDM learns actions from source demonstrations only. In E's videos the last wrist joint
+spends 75.5\% of the frames below $-1.2$~rad, where the 300 source demonstrations have
+2.5\% of theirs (Figure~\ref{fig:wrist}). We therefore recorded 100 more demonstrations of
+the \emph{source cube} with every grasp turned by $90^\circ$. Only the IDM trains on them;
+every policy keeps the 300 source demonstrations, so the results above are unchanged and
+all policies see the same labeled data. This stays within the problem: the data are
+labeled demonstrations of the source object, no target action is used (R1), and nothing in
+them says that E needs the turn; that comes from E's videos. The IDM thus sees 400 labeled
+source demonstrations and the policies 300. Two controls are open.
+\todo{IDM label error on E with and without the turned demonstrations; source-only policy
+trained on the 400 demonstrations, tested on E.}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/wrist.png}
+  \caption{Angle of the last wrist joint over all frames of three collections. The dashed
+  line marks $-1.2$~rad.}
+  \label{fig:wrist}
+\end{figure}
+
+\subsection{Checkpoint selection and training curves}
+Figure~\ref{fig:selection} shows, for every run, the source validation success of its two
+checkpoints. The lowest-loss checkpoint was selected in 8 of 18 runs and the last one in
+10, with differences of up to 79 points. Figure~\ref{fig:losses} shows why the loss
+cannot choose: the validation loss flattens after about 1,000 epochs while success keeps
+changing. With augmentation the training loss stays close to the validation loss.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/selection.png}
+  \caption{Checkpoint selection: success in 100 source validation rollouts of the
+  lowest-validation-loss checkpoint and of the last one, three seeds per method. The
+  higher one is tested.}
+  \label{fig:selection}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/curves.png}
+  \caption{ACT's L1 action loss per epoch, three seeds per panel. \todo{Add the policies
+  of (b) and (c).}}
+  \label{fig:losses}
+\end{figure}
+
+\subsection{Inverse dynamics model}
+\todo{Table: IDM error per action component on held-out source transitions, and
+pseudo-label error on each target, for $\lambda = 0$ (b) and DANN (c); three seeds.
+Figure: IDM training curves.}
+
+\subsection{Comparison with alternatives}
+Table~\ref{tab:main} holds the comparison on the C4 constraints (C9, C10), and
+Table~\ref{tab:r4} the requirement R4 for (e).
+
+\begin{table}[t]
+  \caption{Test success on each target and on the source (mean over three seeds, 100
+  rollouts each). (a) and (e) use no target, so their source column is one number; for (d)
+  it is the range over the oracles for A to D.}
+  \label{tab:main}
+  \centering
+  \small
+  \begin{tabular}{@{}l@{\hspace{4pt}}lcccccc@{}}
+    \toprule
+    & Method & A & B & C & D & E & Source \\
+    \midrule
+    (a) & Source only & 0.3\% & 82.3\% & 59.0\% & 0.0\% & 0.0\% & 90.7\% \\
+    (e) & Augmentation & \textbf{98.7\%} & \textbf{90.7\%} & \textbf{68.0\%} & 66.7\% & 0.3\% & 95.0\% \\
+    (b) & Unadapted IDM & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
+    (c) & DANN-adapted IDM & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
+    (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & \todo{} & 87.0--96.3\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[t]
+  \caption{R4 for the augmentation baseline (e): fraction of the oracle's gain over the
+  source-only policy, from the means of Table~\ref{tab:main}.}
+  \label{tab:r4}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrrl@{}}
+    \toprule
+    Target & Oracle gain & (e) gain & $G_T$ & R4 ($\geq 0.5$) \\
+    \midrule
+    A & 85.4 points & 98.4 points & 1.15 & Met \\
+    B & 6.0 points & 8.4 points & 1.40 & Met; the gap is within the seed spread \\
+    C & $-13.0$ points & 9.0 points & -- & Inconclusive (oracle below baseline) \\
+    D & 92.7 points & 66.7 points & 0.72 & Met \\
+    E & \todo{} & 0.3 points & \todo{} & \todo{} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The augmentation baseline meets R4 on A, B and D without target data, and R5 on the
+source. On A it leaves nothing to gain. The room for methods that use target videos is on
+D, 26 points between (e) and the oracle, and on E, where (e) gains nothing.
+\todo{R4 ($G_T$) and R5 per target for (b) and (c); (b) against (c); (c) against (e);
+latency of every method (R6); negative transfer if alignment hurts.}
 
 \subsection{Results on earlier data}
 \label{sec:earlier}
@@ -692,14 +847,22 @@ to 41\%, and re-querying more often without averaging is worse.
 % C11: limitations and advantages.
 
 \paragraph{Were the constraints met?}
-R2 is decided (300 demonstrations). R3 and R6 are met by the baseline and the oracle:
-images only, 10~ms per call. \todo{R1 and R3 for the IDM pipeline; R4 and R5 per target.}
+R2 is decided (300 demonstrations). R3 and R6 are met by every policy measured: images
+only, at most 18~ms per call. The augmentation baseline meets R4 on A, B and D and R5 on
+the source. \todo{R1 and R3 for the IDM pipeline; R4 and R5 per target for (b) and (c).}
 
-\paragraph{Colour, not shape, is the gap.}
-The source-only policy transfers to red blocks of another shape and never grasps a blue
-object. Targets A and D are where action-free videos can show a gain; B leaves almost
-none, and C depends on a working oracle. \todo{Interpret with the results of (b), (c)
-and (e).}
+\paragraph{Appearance does not need target videos.}
+The source-only policy fails on everything that is not plain red, and colour jitter on
+the same source data removes that failure, on the blue cube and on objects it was never
+tuned for (texture, black, white). On an appearance shift, target videos compete with an
+alternative that needs no target data and already exceeds the oracle on A.
+
+\paragraph{Behaviour does.}
+Augmentation changes what the policy tolerates in the image, not what it does. When the
+target needs another grasp it gains little (D: 66.7\% against an oracle of 92.7\%) or
+nothing (E: 0.3\%). These are the targets where action-free videos can add something, and
+where (b) and (c) should be judged. \todo{Interpret with the results of (b) and (c) on A,
+D and E.}
 
 \paragraph{Demonstration variability.}
 On the earlier data the same code and budget gave 99\% or 53\% depending on how the
@@ -707,11 +870,12 @@ demonstrations were generated. The ACT paper reports the same direction between 
 and human demonstrations \citep{zhao2023act}.
 
 \paragraph{Checkpoint and seed variance.}
-Neither the lowest validation loss nor the last epoch is a reliable choice: in the six
-runs of Table~\ref{tab:selection} the better checkpoint in rollouts was \emph{best} twice
-and \emph{last} four times, with differences of up to 79 points. Selection needs
-closed-loop rollouts. Across seeds, source success ranges from 77\% to 100\%, so three
-seeds give wide intervals. \todo{Cite prior reports of this effect (not yet in the
+Neither the lowest validation loss nor the last epoch is a reliable choice: in the 18
+runs of Figure~\ref{fig:selection} the selected checkpoint was \emph{best} 8 times and
+\emph{last} 10 times, with differences of up to 79 points. Selection needs closed-loop rollouts.
+Across seeds, source success ranges from 77\% to 100\% and one oracle run failed (C,
+seed 0), so three seeds give wide intervals; the Wilson intervals pool the rollouts of
+the three seeds and do not include that spread. \todo{Cite prior reports of this effect (not yet in the
 bibliography).}
 
 \paragraph{What went wrong.}
@@ -723,7 +887,9 @@ from training initial states it succeeded only 60--70\% of the time, and most fa
 were missed grasps. Temporal ensembling made it worse (21\% and 14\% for 200 and 300
 demonstrations), because averaging increments predicted from different states is not
 well defined. We replaced it with the original ACT, absolute targets and deterministic
-demonstrations. The oracle for target C also failed (Section~\ref{sec:results}).
+demonstrations. One oracle run for target C also failed (Section~\ref{sec:results}), and
+our first choice of targets could not answer the research question, because
+augmentation solves them (Section~\ref{sec:targetE}).
 \todo{Other problems met with the IDM and DANN.}
 
 \paragraph{Limitations.}
@@ -736,9 +902,14 @@ demonstrations. The oracle for target C also failed (Section~\ref{sec:results}).
   as the source, so the only shift is the object.
   \item \textbf{Protocol change.} The expert lost its grasp turns after the 100-demonstration
   result; R2 was not revisited.
-  \item \textbf{Oracle.} One seed so far; every checkpoint, the oracle's too, is selected
-  on source validation rollouts, which may understate the oracle on its target. The
-  0.75~cm clearance makes C and D sensitive to any policy.
+  \item \textbf{Oracle.} Every checkpoint, the oracle's too, is selected on source
+  validation rollouts, which may understate the oracle on its target. The 0.75~cm
+  clearance makes C fragile, and its oracle gives no usable gap.
+  \item \textbf{Target E.} It was designed after the augmentation results. Its expert
+  succeeds in 93.9\% of attempts, which bounds the oracle. The IDM trains on 100 source
+  demonstrations that the policies do not see.
+  \item \textbf{Augmentation.} One setting, not tuned; its hue range covers every colour,
+  the favourable case. The screening of candidates used 20 rollouts per value.
   \item \textbf{Evaluation noise.} GPU rendering is not bit-exact: two renders of the
   same state can differ by one intensity level in a few pixels. With our earlier
   reimplementation this flipped 11 of 40 episode outcomes when the same seeds were
@@ -786,8 +957,9 @@ search and bibliography formatting; (ii) document structure and draft prose of t
 proposal and this report; (iii) software: simulator changes in our OCBench fork, seeded
 data collection and replay checks, dataset publishing, the training and evaluation
 infrastructure, a first ACT reimplementation and its diagnostics, the adapter that runs
-the original ACT, and tests; and (iv) running and summarizing the baseline experiments
-that a team member approved. We used them to cover more engineering than a four-person
+the original ACT, and tests; (iv) running and summarizing the baseline, oracle and
+augmentation experiments that a team member approved, including the screening of
+candidate targets and the definition of target E; and (v) the figures of this report. We used them to cover more engineering than a four-person
 course project otherwise allows, so that the team's time went to design decisions and
 analysis. The team directed the work, made the design decisions (scene, data sizes,
 protocol, ACT settings) and approved every paid run. Verification: automated tests,
