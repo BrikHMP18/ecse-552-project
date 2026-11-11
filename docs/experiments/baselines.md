@@ -10,7 +10,7 @@ target with their true actions. These two bound the methods that use target vide
 | | |
 |---|---|
 | Data | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block), `[hub] revision` in [`configs/data.toml`](../../configs/data.toml): `deterministic` collections re-recorded on 10 November without 90° grasp turns (OCBench fork `148a7b8`) |
-| Configs | `configs/act_deterministic.toml` (a), `configs/act_oracle_{A,B,C,D,E}.toml` (d), `configs/act_only_C.toml` (diagnosis) |
+| Configs | `configs/act_deterministic.toml` (a), `configs/act_oracle_{A,B,C,D,E}.toml` (d), `configs/act_only_C.toml` (diagnosis), `configs/act_source_turned.toml` (control, [target_E.md](target_E.md)) |
 | Training | ACT README settings, chunk 20, 2,000 epochs, upstream 80/20 split; one A10G per run on Modal |
 | Selection | `policy_best` vs `policy_last`, 100 source validation rollouts each (seeds 900,000+), ties to best |
 | Test | each selected checkpoint once, 100 rollouts per object (seeds 1,000,000+), temporal ensembling (k = 0.01) |

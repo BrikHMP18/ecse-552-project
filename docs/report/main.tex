@@ -710,9 +710,13 @@ every policy keeps the 300 source demonstrations, so the results above are uncha
 all policies see the same labeled data. This stays within the problem: the data are
 labeled demonstrations of the source object, no target action is used (R1), and nothing in
 them says that E needs the turn; that comes from E's videos. The IDM thus sees 400 labeled
-source demonstrations and the policies 300. Two controls are open.
-\todo{IDM label error on E with and without the turned demonstrations; source-only policy
-trained on the 400 demonstrations, tested on E.}
+source demonstrations and the policies 300.
+
+As a control, we trained the source-only policy on the 400 demonstrations (three seeds, no
+data of E). It reaches 0\%, 1\% and 6\% on E (mean 2.3\%, Wilson interval [1.1, 4.7])
+against 89.0\% for the oracle, and 84.3 $\pm$ 4.5\% on the source. The turned
+demonstrations alone therefore do not solve E: the policy must learn from E's videos when
+to turn. \todo{IDM label error on E with and without the turned demonstrations.}
 
 \begin{figure}[t]
   \centering

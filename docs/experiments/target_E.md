@@ -100,8 +100,7 @@ Why this is within the problem:
 Limits to state in the report:
 
 - The IDM sees 400 labeled source demos and the policies 300.
-- Not tested: whether a policy trained on the 300 + 100 demos would turn on E by chance. A
-  control run (baseline on both collections, tested on E) would answer it.
+- A policy trained on the 300 + 100 demos does not solve E (control below): 2.3%.
 - Not tested: whether the IDM needs this collection. Measure its label error on E against
   the true actions (evaluation only), with and without it, before training policies on
   its labels.
@@ -116,11 +115,20 @@ Test success, 100 rollouts per seed (seeds 1,000,000+), one test per selected ch
 | (e) Augmentation | 0% | 1% | 0% | 0.3% | 0.6 | [0.1, 1.9] |
 | (d) Oracle E | 87% | 97% | 83% | 89.0% | 7.2 | [85.0, 92.1] |
 | (d) Oracle E, on source | 94% | 91% | 94% | 93.0% | 1.7 | [89.5, 95.4] |
+| Control: source + turned source demos | 0% | 1% | 6% | 2.3% | 3.2 | [1.1, 4.7] |
+| Control, on source | 89% | 80% | 84% | 84.3% | 4.5 | [79.8, 88.0] |
 
 - Neither source-only method solves E: the policy must be shown the turned grasp.
 - Oracle E (`configs/act_oracle_E.toml`, source + E with true actions; model repo
   `Autobrik/ecse552-act-oracle-E`) reaches 89.0%, close to the expert's 93.9%, and keeps the
   source (93.0%, within R5). All three seeds selected `policy_last`
   ([baselines.md](baselines.md)).
+- **The turned source demos alone do not solve E.** The control
+  (`configs/act_source_turned.toml`, baseline on the 300 source demos plus the 100 turned
+  ones, no data of E; model repo `Autobrik/ecse552-act-source-turned`; selected `best`,
+  `last`, `best`) reaches 2.3% on E (7 of 300 rollouts, 6 of them in seed 2), against 89.0%
+  for the oracle. The policy sometimes turns, but it has no reason to turn for E. Its
+  source success is 84.3%, 6 points below the baseline (within R5): one more reason to
+  keep these demos out of the policies.
 - **E is a usable target**: the oracle is 89 points above the best source-only method
   (26 points on D, none on A), and (e) covers none of that gap (G_T = 0.00).

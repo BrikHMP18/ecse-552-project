@@ -68,8 +68,8 @@ Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
   above the oracle, and 66.7% on D. On A nothing is left for (b) and (c) to gain over (e);
   on D the oracle is 26 points above it ([augmentation.md](docs/experiments/augmentation.md)).
 - **Target E changes the behaviour, not the appearance**: its 9 cm side does not fit the
-  gripper, so the grasp must turn by 90°. Baseline and augmentation both fail (0%, 0.3%)
-  and the oracle reaches 89.0%: only target data can show the turn ([target_E.md](docs/experiments/target_E.md)).
+  gripper, so the grasp must turn by 90°. Baseline and augmentation both fail (0%, 0.3%),
+  a baseline that also sees 100 turned source demos reaches 2.3%, and the oracle 89.0%: only target data can show the turn ([target_E.md](docs/experiments/target_E.md)).
 - **Oracle C**: seed 0 was a bad run (3%); seeds 1 and 2 reach 72% and 63%, and ACT on C
   alone 87% on validation. Its mean stays below the baseline, so C gives no usable gap for
   R4 ([baselines.md](docs/experiments/baselines.md)).
