@@ -1,0 +1,23 @@
+# Control, not a method: act_deterministic.toml plus the 100 source demos with the grasp
+# turned (the IDM-only collection). Tested on E, it tells whether those demos alone make a
+# source-only policy turn on E (docs/experiments/target_E.md).
+
+data_dir = "data/source-deterministic-n300-seed0"
+num_episodes = 300
+exclude_detours = false
+
+num_epochs = 2000
+batch_size = 8
+lr = 1e-5
+kl_weight = 10
+chunk_size = 20
+hidden_dim = 512
+dim_feedforward = 3200
+
+execution = "ensemble:0.01"
+wandb_project = "ecse552"
+
+[[targets]]
+dir = "data/source-turned-n100-seed600000"
+num_episodes = 100
+actions = "true"
