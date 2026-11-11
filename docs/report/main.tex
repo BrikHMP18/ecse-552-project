@@ -522,7 +522,8 @@ gives the overview; the tables give every seed.
   \includegraphics[width=\linewidth]{figures/results.png}
   \caption{Test success per object: mean of three seeds (bars and numbers), standard
   deviation (lines) and each seed (dots), 100 rollouts per seed. The oracle is the one
-  trained for that target. \todo{Add (b) and (c).}}
+  trained for that target. The low dot of the oracle for C is its seed 0
+  (Section~\ref{sec:results}, Oracle C). \todo{Add (b) and (c).}}
   \label{fig:results}
 \end{figure}
 
@@ -594,18 +595,34 @@ success (93.9\%): the turned grasp is learnable from 200 episodes, so E is a usa
 \end{table}
 
 \paragraph{Oracle C, seed 0.}
-Seed 0 of the oracle for C reaches 3\% on C. We measured where the gripper is, relative to
-the object's centre, when it first closes (10 validation rollouts per case,
-Table~\ref{tab:offset}). That policy reaches the block at the right height but about 1~cm
-off-centre along the closing direction, more than the 0.75~cm that a 7~cm block allows:
-one finger lands on the block, the gripper closes empty and pushes the block. None of its
-97 failed test rollouts lifted the block. Two checks show that this is a bad run and not a
-property of C. Seeds 1 and 2 of the same configuration reach 72\% and 63\%. A policy
+Seed 0 of the oracle for C reaches 3\% on C, against 72\% and 63\% for seeds 1 and 2. It
+pulls the mean down to 46.0\%; the median of the three seeds is 63\%. We kept the run and
+examined it.
+
+\emph{What fails.} We measured where the gripper is, relative to the object's centre, when
+it first closes (10 validation rollouts per case, Table~\ref{tab:offset}). The policy
+reaches the block at the right height but about 1~cm off-centre along the closing
+direction, more than the 0.75~cm that a 7~cm block allows: one finger lands on the block,
+the gripper closes empty and pushes the block. None of its 97 failed test rollouts lifted
+the block. Both of its checkpoints show the offset.
+
+\emph{It is not the test.} Run again on 100 validation rollouts of C, with other initial
+states, the three selected checkpoints give 1\%, 75\% and 61\%.
+
+\emph{It is not the object.} Seeds 1 and 2 of the same configuration learn C. A policy
 trained on C alone (200 episodes, true actions, one seed; a diagnosis, not a method)
-reaches 87\% on C in validation with its lowest-loss checkpoint, and 18\% with its last
-one. Seed 0 was weak everywhere: 60\% in source validation against 97\% and 98\% for the
-other seeds. The narrow clearance still makes C fragile. The offsets of seeds 1 and 2 were
-not measured.
+reaches 87\% on C in validation with its lowest-loss checkpoint. The oracle for D, the
+same block in blue, reaches 88\% to 96\% in its three seeds.
+
+\emph{The loss does not show it.} The validation L1 loss of seed 0 over the last 100
+epochs is 0.058, against 0.059 for seeds 1 and 2, and its minimum is the lowest of the
+three. An offset of 1~cm at the grasp barely changes the mean action error but decides the
+rollout. The run was also weak on the source: 60\% in validation against 97\% and 98\%.
+
+The seed sets the weight initialisation and the sampling order only; we did not find which
+of the two produced the offset. The narrow clearance makes C fragile: the policy trained
+on C alone drops from 87\% to 18\% between its two checkpoints. The offsets of seeds 1 and
+2 were not measured.
 
 \begin{table}[t]
   \caption{Gripper position relative to the object's centre when the gripper first

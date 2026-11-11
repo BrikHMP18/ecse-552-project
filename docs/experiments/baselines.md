@@ -136,6 +136,11 @@ y; the opening is 8.5 cm, so a 7 cm block leaves 0.75 cm per side and a 6 cm one
 - **The result repeats.** The three selected checkpoints were run again on C with 100
   validation rollouts (seeds 900,000+, 11 November): 1%, 75%, 61%, against 3%, 72%, 63% on
   the test seeds. The failure belongs to the trained policy, not to the test.
+- **The loss does not show it.** Validation L1 over the last 100 epochs: 0.058 (seed 0),
+  0.059, 0.059; seed 0 has the lowest minimum (0.045). A 1 cm offset at the grasp barely
+  changes the mean action error. The seed sets the weight initialisation and the sampling
+  order only; which of the two produced the offset is not known.
+- The run is kept: mean 46.0%, median 63%.
 - The margin still makes C fragile: one run goes from 87% to 18% between two checkpoints.
 - The grasp offsets of seeds 1 and 2 were not measured.
 
