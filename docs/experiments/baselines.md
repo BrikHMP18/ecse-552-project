@@ -133,6 +133,9 @@ y; the opening is 8.5 cm, so a 7 cm block leaves 0.75 cm per side and a 6 cm one
   config reach 72% and 63% on C, and ACT on C alone reaches 87% (`policy_best`), so neither
   mixing source and C nor the 0.75 cm margin prevents learning C. Seed 0 was weak everywhere
   (60% on source validation, 97% and 98% for the other seeds). C and D stay as targets.
+- **The result repeats.** The three selected checkpoints were run again on C with 100
+  validation rollouts (seeds 900,000+, 11 November): 1%, 75%, 61%, against 3%, 72%, 63% on
+  the test seeds. The failure belongs to the trained policy, not to the test.
 - The margin still makes C fragile: one run goes from 87% to 18% between two checkpoints.
 - The grasp offsets of seeds 1 and 2 were not measured.
 
