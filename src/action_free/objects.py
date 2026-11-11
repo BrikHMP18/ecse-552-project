@@ -9,6 +9,9 @@ renders the single cube blue, so the source sets `cube_colors=('red',)` explicit
 (supported by our OCBench fork, CPU environments only). Targets B, C and D are 9 cm blocks
 (`object_size`, same fork); the expert grasps them across their second side (6 or 7 cm),
 and the 7 cm ones 2 cm above the centre, where the gripper linkage clears the block.
+Target E (11 November 2026) is B's block lying across the gripper: its 9 cm side is along y
+and does not fit the 8.5 cm opening, so the expert turns the grasp by 90 degrees. It changes
+the behaviour, not the appearance.
 
 Every object shares `SCENE_KWARGS`: a dark-gray 12 cm (inner side) square marks the fixed
 goal, and success requires the whole cube inside it, resting on the table, released and
@@ -69,6 +72,11 @@ OBJECTS: dict[str, ObjectSpec] = {
             "D",
             "blue 9x7x6 cm block (appearance and geometry)",
             {"cube_colors": ("blue",), "object_size": (0.09, 0.07, 0.06)},
+        ),
+        ObjectSpec(
+            "E",
+            "red 6x9x6 cm block (behaviour: grasp turned by 90 degrees)",
+            {"cube_colors": ("red",), "object_size": (0.06, 0.09, 0.06)},
         ),
     )
 }

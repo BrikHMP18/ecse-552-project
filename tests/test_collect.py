@@ -51,8 +51,9 @@ def _cube_rgb(env):
 
 
 def test_objects_follow_proposal_colours_and_sizes():
-    """Red: source, B, C; blue: A, D. Cubes of 6 cm; blocks of 9 x 6 x 6 and 9 x 7 x 6 cm."""
+    """Red: source, B, C, E; blue: A, D. Cubes of 6 cm; blocks 9 x 6 x 6, 9 x 7 x 6, 6 x 9 x 6."""
     sizes = {"source": (6, 6, 6), "A": (6, 6, 6), "B": (9, 6, 6), "C": (9, 7, 6), "D": (9, 7, 6)}
+    sizes["E"] = (6, 9, 6)
     assert set(sizes) == set(OBJECTS)
     for name, size in sizes.items():
         env = make_env(STATE_ENV, name)
@@ -79,7 +80,7 @@ def test_same_seed_same_initial_state_for_every_object():
 
 
 def test_blocks_render():
-    for name, red_block in (("B", True), ("C", True), ("D", False)):
+    for name, red_block in (("B", True), ("C", True), ("D", False), ("E", True)):
         env = make_env(VISUAL_ENV, name)
         ob, _ = env.reset(seed=0)
         env.close()
@@ -96,22 +97,25 @@ def test_expert_moves_the_blocks():
         env.close()
 
 
-def test_deterministic_expert_never_turns_the_first_grasp():
-    """Stock OCBench turns the cube grasp by 90 degrees in 30% of episodes; ours never does."""
+def test_deterministic_expert_turns_the_first_grasp_only_for_target_e():
+    """Stock OCBench turns the cube grasp by 90 degrees in 30% of episodes; ours never does,
+    except for target E, whose 9 cm side does not fit the gripper."""
     from action_free.collect import make_expert
 
-    env = make_env(STATE_ENV)
-    for seed in range(10):
-        np.random.seed(seed)
-        ob, info = env.reset(seed=seed)
-        expert = make_expert(env, STATE_ENV)
-        expert.reset(ob, info, transition_idx=0)
-        for t in range(60):
-            ob, _, _, _, info = env.step(np.clip(expert.select_action(ob, info, t), -1, 1))
-            if info["privileged/block_0_pos"][2] > 0.04:  # lifted
-                break
-        assert abs(np.sin(info["proprio/effector_yaw"][0])) < 0.26  # within 15 degrees
-    env.close()
+    for name, seeds in (("source", 10), ("E", 3)):
+        env = make_env(STATE_ENV, name)
+        for seed in range(seeds):
+            np.random.seed(seed)
+            ob, info = env.reset(seed=seed)
+            expert = make_expert(env, STATE_ENV)
+            expert.reset(ob, info, transition_idx=0)
+            for t in range(60):
+                ob, _, _, _, info = env.step(np.clip(expert.select_action(ob, info, t), -1, 1))
+                if info["privileged/block_0_pos"][2] > 0.04:  # lifted
+                    break
+            turn = abs(np.sin(info["proprio/effector_yaw"][0]))
+            assert turn > 0.96 if name == "E" else turn < 0.26  # within 15 degrees
+        env.close()
 
 
 def test_success_uses_the_block_size():
