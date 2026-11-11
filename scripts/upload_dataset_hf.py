@@ -51,7 +51,8 @@ and evaluation: those collections stand in for action-free videos.
 
 `source` is the labeled red cube. Targets: A changes only the colour (blue cube); B the
 geometry (9 x 6 x 6 cm block, same 6 cm grasp width); C the geometry and the grasp width
-(9 x 7 x 6 cm); D is C in blue. The same seed gives the same initial object and arm state
+(9 x 7 x 6 cm); D is C in blue; E the behaviour (6 x 9 x 6 cm, red: B's block lying across
+the gripper, grasped with a 90-degree turn). The same seed gives the same initial object and arm state
 for every object.
 
 ## Scene
@@ -74,7 +75,9 @@ for every object.
   method; `*-stochastic-*` (`random_yaw` + `stochastic`) are kept for reference.
 - Blocks start with the 9 cm side along x. The expert grasps them across the second side
   (6 or 7 cm), never turned by 90 degrees, and the 7 cm ones 2 cm above the centre (lower,
-  the gripper linkage hits the block). Success uses the block's real footprint.
+  the gripper linkage hits the block). Target E is the exception: its 9 cm side is along y
+  and does not fit the 8.5 cm gripper, so the expert turns the grasp by 90 degrees and
+  grasps across the 6 cm side. Success uses the block's real footprint.
 - Only successful expert episodes are kept; failed seeds are skipped (see `manifest.json`).
 
 ## Files
