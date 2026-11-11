@@ -25,6 +25,7 @@ start for every object) and expert settings are shared. Defined in
 | C | 9 x 7 x 6 block, red | geometry and grasp width | across the 7 cm side, 2 cm above the centre | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/C-deterministic-n200-seed300000) | 300,000 | 100% |
 | D | 9 x 7 x 6 block, blue | appearance, geometry and grasp width | as C | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/D-deterministic-n200-seed400000) | 400,000 | 100% |
 | E | 6 x 9 x 6 block, red | behaviour: 9 cm does not fit the gripper | across the 6 cm side, gripper turned by 90° | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/E-deterministic-n200-seed500000) | 500,000 | 93.9% |
+| source, turned grasp | 6 x 6 x 6 cube, red | (labeled demos, IDM only) | every grasp turned by 90° | [100](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/source-turned-n100-seed600000) | 600,000 | 100% |
 
 Targets are action-free videos for every method; their stored actions are only for the
 oracle (d) and evaluation. Blocks come from the fork's `object_size` argument: the 9 cm side
@@ -136,6 +137,8 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 - **Test:** each selected checkpoint once, 100 rollouts per object (seeds 1,000,000+), 3 seeds;
   mean, std, 95% CI. GPU rendering is not bit-exact, so reruns vary; report intervals.
 - Held-out source demos (seeds 50,000+) are only for the IDM test error.
+- Source demos with a turned grasp (seeds 600,000+) train only the IDM, never a policy
+  ([target_E.md](docs/experiments/target_E.md)).
 
 ## Data and models
 

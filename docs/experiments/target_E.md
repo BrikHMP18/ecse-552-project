@@ -69,8 +69,42 @@ The IDM learns actions from the source demos only. The last wrist joint (`wrist_
 The source demos do rotate the wrist (while carrying and placing), and step sizes are alike.
 But the turned grasp holds the joint where the source has few frames: three quarters of E's
 frames lie in a region with 2.5% of the source frames. The IDM may label that region badly.
-Measure its label error on E against the true actions (evaluation only) before training
-policies on its labels.
+
+### Extra source demos for the IDM
+
+[`source-turned-n100-seed600000`](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/source-turned-n100-seed600000):
+100 demos of the **source cube** with every grasp turned by +90 degrees (expert `turned`,
+fork `4d7751f`; expert success 100%, seeds from 600,000, dataset revision `b7ef4c6`).
+
+| Frames with `wrist_3` below -1.2 rad | |
+|---|---:|
+| Source, 300 demos | 565 (2.5%) |
+| Source turned, 100 demos | 5,735 (78.4%) |
+| Both | 6,300 (21.0%) |
+| E | 75.5% of its frames |
+
+Rule (Brik, 11 November 2026): **only the IDM trains on this collection.** Every policy,
+(a), (e), (d) and the policy stage of (b) and (c), keeps the 300 source demos, so the results
+already measured stay valid and all policies see the same labeled data.
+
+Why this is within the problem:
+
+- It is labeled data of the source object only. No target action is used (R1), and the
+  images show the red cube, not E.
+- The problem assumes labeled demos of the source and action-free videos of the target. It
+  does not fix which motions the source demos show; an IDM can only label motions it has
+  seen, so the source demos must cover the robot's motions in the target videos.
+- The turn is not what makes E hard for a policy: on the cube the turn is arbitrary, and
+  nothing in these demos says that E needs it. That comes from E's videos.
+
+Limits to state in the report:
+
+- The IDM sees 400 labeled source demos and the policies 300.
+- Not tested: whether a policy trained on the 300 + 100 demos would turn on E by chance. A
+  control run (baseline on both collections, tested on E) would answer it.
+- Not tested: whether the IDM needs this collection. Measure its label error on E against
+  the true actions (evaluation only), with and without it, before training policies on
+  its labels.
 
 ## Results
 
