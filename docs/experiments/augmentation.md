@@ -23,6 +23,11 @@ baseline is colour (A and D at 0%, B and C transfer), it is the strongest altern
 
 First row: the original frame (front, side, wrist cameras). Other rows: five random draws.
 
+Videos, for illustration only:
+[Autobrik/ecse552-ocbench-source-augmented-sample](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-augmented-sample)
+(LeRobot, 20 source episodes, one draw per episode; training draws a new one per sample).
+Made with `scripts/upload_lerobot_hf.py data/source-deterministic-n300-seed0 --augment-sample 20`.
+
 ## Open choices (Gonzalo)
 
 - **Hue range.** The full circle is the favourable case for (e): it assumes the target may
