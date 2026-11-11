@@ -71,6 +71,9 @@ for every object.
   fixed speed and without 90-degree grasp turns (since 10 November 2026; earlier revisions
   turned the cube grasp in 30% of episodes); `stochastic`: stock OCBench, with mistakes (`p_mistake` = 0.1 per subgoal:
   some episodes first carry the cube to a random spot, `num_detours`) and a random speed.
+- Expert `turned`: `deterministic` with every cube grasp turned by +90 degrees.
+  `source-turned-*` holds labeled source-cube demos recorded with it, used only to train the
+  inverse dynamics model, so that it sees the wrist angles of target E; no policy trains on it.
 - `*-deterministic-*` folders (`fixed_yaw` + `deterministic`) are the project data for every
   method; `*-stochastic-*` (`random_yaw` + `stochastic`) are kept for reference.
 - Blocks start with the 9 cm side along x. The expert grasps them across the second side
