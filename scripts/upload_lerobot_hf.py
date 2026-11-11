@@ -5,6 +5,8 @@
 
 One repository per collection: Autobrik/ecse552-ocbench-<object>[-test]. The .npz copy
 (scripts/upload_dataset_hf.py) stays the training data; videos here are lossy.
+`--augment-sample N` publishes instead the first N episodes with the image augmentation of
+method (e), one random draw per episode, as an illustration (<repository>-augmented-sample).
 """
 
 # ruff: noqa: E501
@@ -14,9 +16,10 @@ import shutil
 from pathlib import Path
 
 import numpy as np
+import torch
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
-from action_free.act_original import CAMERAS
+from action_free.act_original import AUGMENT, CAMERAS, augment_images
 from action_free.data import episode_files
 
 NPZ_REPO = "Autobrik/ecse552-ocbench-block"
@@ -60,9 +63,15 @@ only by the true-action oracle and for evaluation."""
 TEST_NOTE = """
 
 **Held-out source episodes** (own seed range): only for the inverse dynamics model's test error."""
+AUGMENT_NOTE = """
+
+**Illustration only, not training data.** The first {n} episodes with the image augmentation
+of the project's method (e), settings `{settings}`. Here one random draw per episode (seed =
+episode index) is applied to its three cameras; training draws a new one for every sample, so
+no fixed dataset reproduces it. Actions and states are unchanged."""
 
 
-def publish(d: Path, user: str, work: Path) -> None:
+def publish(d: Path, user: str, work: Path, augment: int = 0) -> None:
     m = json.loads((d / "manifest.json").read_text())
     cfg = m["config"]
     if (cfg.get("scene"), cfg.get("expert")) != ("fixed_yaw", "deterministic"):
@@ -75,21 +84,26 @@ def publish(d: Path, user: str, work: Path) -> None:
     obj = cfg["object_name"]
     test = cfg.get("role") == "test"
     repo = f"{user}/ecse552-ocbench-{obj}{'-test' if test else ''}"
+    repo += "-augmented-sample" if augment else ""
     root = work / repo.split("/")[1]
     shutil.rmtree(root, ignore_errors=True)
     ds = LeRobotDataset.create(
         repo, fps=10, features=FEATURES, root=root, robot_type="ur5e_robotiq"
     )
     task = f"Pick up the {m['object']['description'].split(' (')[0]} and place it inside the gray square."
-    for f in episode_files(d):
+    files = episode_files(d)[:augment] if augment else episode_files(d)
+    for n, f in enumerate(files):
         ep = np.load(f)
-        for t in range(int(ep["length"])):
+        images = ep["observations"][: int(ep["length"])]  # (T, cameras, H, W, 3) uint8
+        if augment:
+            torch.manual_seed(n)
+            x = torch.from_numpy(images).flatten(0, 1).permute(0, 3, 1, 2) / 255
+            x = (augment_images(x) * 255).round().byte().permute(0, 2, 3, 1)
+            images = x.reshape(images.shape).numpy()
+        for t in range(len(images)):
             ds.add_frame(
                 {
-                    **{
-                        f"observation.images.{c}": ep["observations"][t, i]
-                        for i, c in enumerate(CAMERAS)
-                    },
+                    **{f"observation.images.{c}": images[t, i] for i, c in enumerate(CAMERAS)},
                     "observation.state": ep["qpos"][t, :7],
                     "observation.environment_state": ep["qpos"][t, -7:],
                     "action": ep["actions"][t],
@@ -98,7 +112,7 @@ def publish(d: Path, user: str, work: Path) -> None:
             )
         ds.save_episode()
     ds.finalize()
-    assert ds.meta.total_frames == m["total_transitions"], (ds.meta.total_frames, m)
+    assert augment or ds.meta.total_frames == m["total_transitions"], ds.meta.total_frames
     ds.push_to_hub(
         tags=["ecse552", "ocbench", "ur5e", "mujoco", "simulation"],
         license="mit",
@@ -109,10 +123,11 @@ def publish(d: Path, user: str, work: Path) -> None:
             commit=prov["project_commit"][:7],
             obj=obj,
             desc=m["object"]["description"],
-            n=m["num_kept"],
+            n=augment or m["num_kept"],
             scene=cfg["scene"],
             expert=cfg["expert"],
-            note=TEST_NOTE if test else "" if obj == "source" else TARGET_NOTE,
+            note=(TEST_NOTE if test else "" if obj == "source" else TARGET_NOTE)
+            + (AUGMENT_NOTE.format(n=augment, settings=AUGMENT) if augment else ""),
         ),
     )
     print(f"https://huggingface.co/datasets/{repo}  {ds.meta.total_episodes} episodes", flush=True)
@@ -123,9 +138,10 @@ def main() -> None:
     p.add_argument("collections", type=Path, nargs="+")
     p.add_argument("--user", default="Autobrik")
     p.add_argument("--work-dir", type=Path, default=Path("outputs/lerobot"))
+    p.add_argument("--augment-sample", type=int, default=0, metavar="N")
     a = p.parse_args()
     for d in a.collections:
-        publish(d, a.user, a.work_dir)
+        publish(d, a.user, a.work_dir, a.augment_sample)
 
 
 if __name__ == "__main__":
