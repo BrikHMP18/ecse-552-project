@@ -99,22 +99,24 @@ def test_expert_moves_the_blocks():
 
 def test_deterministic_expert_turns_the_first_grasp_only_for_target_e():
     """Stock OCBench turns the cube grasp by 90 degrees in 30% of episodes; ours never does,
-    except for target E, whose 9 cm side does not fit the gripper."""
+    except for target E, whose 9 cm side does not fit the gripper, and with the "turned" expert."""
     from action_free.collect import make_expert
 
-    for name, seeds in (("source", 10), ("E", 3)):
+    cases = (("source", "deterministic", 10), ("source", "turned", 3), ("E", "deterministic", 3))
+    for name, expert_name, seeds in cases:
         env = make_env(STATE_ENV, name)
         for seed in range(seeds):
             np.random.seed(seed)
             ob, info = env.reset(seed=seed)
-            expert = make_expert(env, STATE_ENV)
+            expert = make_expert(env, STATE_ENV, expert_name)
             expert.reset(ob, info, transition_idx=0)
             for t in range(60):
                 ob, _, _, _, info = env.step(np.clip(expert.select_action(ob, info, t), -1, 1))
                 if info["privileged/block_0_pos"][2] > 0.04:  # lifted
                     break
             turn = abs(np.sin(info["proprio/effector_yaw"][0]))
-            assert turn > 0.96 if name == "E" else turn < 0.26  # within 15 degrees
+            turned = name == "E" or expert_name == "turned"
+            assert turn > 0.96 if turned else turn < 0.26  # within 15 degrees
         env.close()
 
 

@@ -14,6 +14,7 @@ target_B_videos = 200_000
 target_C_videos = 300_000
 target_D_videos = 400_000
 target_E_videos = 500_000    # added 11 November 2026 (behaviour shift: turned grasp)
+source_turned_demos = 600_000  # labeled cube demos with the grasp turned by 90 degrees: IDM training only
 validation = 900_000         # rollouts for checkpoint selection and the R2 decision (source only)
 test = 1_000_000             # final rollouts: each selected checkpoint once, every object
 
@@ -27,6 +28,9 @@ B = "data/B-deterministic-n200-seed200000"
 C = "data/C-deterministic-n200-seed300000"
 D = "data/D-deterministic-n200-seed400000"
 E = "data/E-deterministic-n200-seed500000"
+# Source cube, expert "turned" (every grasp turned by +90 degrees). For the IDM only, so that it
+# sees the wrist angles of target E; policies never train on it (docs/experiments/target_E.md).
+source_turned = "data/source-turned-n100-seed600000"
 # Reference only: stochastic demonstrations, stock OCBench (random_yaw, stochastic); same seeds.
 source_stochastic = "data/source-stochastic-n300-seed0"
 source_test_stochastic = "data/source-stochastic-test-n50-seed50000"

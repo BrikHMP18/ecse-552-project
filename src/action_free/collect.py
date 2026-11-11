@@ -33,9 +33,13 @@ from action_free.objects import env_kwargs, get_object
 # Scripted experts. The project uses "deterministic" (no deliberate detours, fixed speed,
 # no 90-degree grasp turns, so cubes and blocks are grasped alike); "stochastic" is stock
 # OCBench's (detours with p = 0.1 per subgoal, random speed, turned grasps in 30% of cube
-# episodes), kept for the reference data. Both keep OCBench's small grasp jitter and retries.
+# episodes), kept for the reference data. "turned" is "deterministic" with every cube grasp
+# turned by +90 degrees, the grasp target E needs: extra source demos for the IDM only
+# (docs/experiments/target_E.md). All keep OCBench's small grasp jitter and retries.
+_FIXED = {"p_mistake": 0.0, "speed_profile": (1.0, 1.0, 1.0)}
 EXPERTS: dict[str, dict] = {
-    "deterministic": {"p_mistake": 0.0, "speed_profile": (1.0, 1.0, 1.0), "grasp_turns": False},
+    "deterministic": {**_FIXED, "grasp_turns": False},
+    "turned": {**_FIXED, "grasp_turns": "always"},
     "stochastic": {},
 }
 
