@@ -10,7 +10,7 @@ target with their true actions. These two bound the methods that use target vide
 | | |
 |---|---|
 | Data | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block), `[hub] revision` in [`configs/data.toml`](../../configs/data.toml): `deterministic` collections re-recorded on 10 November without 90° grasp turns (OCBench fork `148a7b8`) |
-| Configs | `configs/act_deterministic.toml` (a), `configs/act_oracle_{A,B,C}.toml` (d), `configs/act_only_C.toml` (diagnosis) |
+| Configs | `configs/act_deterministic.toml` (a), `configs/act_oracle_{A,B,C,D}.toml` (d), `configs/act_only_C.toml` (diagnosis) |
 | Training | ACT README settings, chunk 20, 2,000 epochs, upstream 80/20 split; one A10G per run on Modal |
 | Selection | `policy_best` vs `policy_last`, 100 source validation rollouts each (seeds 900,000+), ties to best |
 | Test | each selected checkpoint once, 100 rollouts per object (seeds 1,000,000+), temporal ensembling (k = 0.01) |
@@ -18,7 +18,7 @@ target with their true actions. These two bound the methods that use target vide
 ## Results
 
 Success over 100 test rollouts per object. All runs finished on 10 November 2026; model
-repos `Autobrik/ecse552-act-deterministic`, `Autobrik/ecse552-act-oracle-{A,B,C}` and
+repos `Autobrik/ecse552-act-deterministic`, `Autobrik/ecse552-act-oracle-{A,B,C,D}` and
 `Autobrik/ecse552-act-only-C`.
 
 ### Baseline (a): source only, 3 seeds
@@ -30,6 +30,7 @@ repos `Autobrik/ecse552-act-deterministic`, `Autobrik/ecse552-act-oracle-{A,B,C}
 | B (red 9x6x6 block) | 67% | 99% | 81% | 82.3% | 16.0 | [77.6, 86.2] |
 | C (red 9x7x6 block) | 42% | 81% | 54% | 59.0% | 20.0 | [53.4, 64.4] |
 | D (blue 9x7x6 block) | 0% | 0% | 0% | 0.0% | 0.0 | [0.0, 1.3] |
+| E (red 6x9x6 block, turned grasp) | 0% | 0% | 0% | 0.0% | 0.0 | [0.0, 1.3] |
 
 ### Oracle (d): source + one target with true actions, 3 seeds
 
@@ -41,8 +42,11 @@ repos `Autobrik/ecse552-act-deterministic`, `Autobrik/ecse552-act-oracle-{A,B,C}
 | B | source | 94% | 91% | 82% | 89.0% | 6.2 | [85.0, 92.1] | 90.7% |
 | C | C | **3%** | 72% | 63% | 46.0% | 37.5 | [40.4, 51.7] | 59.0% |
 | C | source | 67% | 100% | 94% | 87.0% | 17.6 | [82.7, 90.3] | 90.7% |
+| D | D | 88% | 96% | 94% | 92.7% | 4.2 | [89.1, 95.1] | 0.0% |
+| D | source | 96% | 100% | 93% | 96.3% | 3.5 | [93.6, 97.9] | 90.7% |
 
-Oracle D is not trained yet.
+Oracle D was trained on 11 November 2026 (`configs/act_oracle_D.toml`); oracle E:
+[target_E.md](target_E.md).
 
 ### Diagnosis: ACT on C alone (`configs/act_only_C.toml`, seed 0)
 
@@ -70,6 +74,9 @@ Oracle D is not trained yet.
 | (d) C seed 0 | 31% (1688) | 60% | last |
 | (d) C seed 1 | 98% (1578) | 82% | best |
 | (d) C seed 2 | 94% (1868) | 97% | last |
+| (d) D seed 0 | 93% (1688) | 95% | last |
+| (d) D seed 1 | 99% (1757) | 94% | best |
+| (d) D seed 2 | 69% (1451) | 90% | last |
 
 ## Reading
 
@@ -82,6 +89,9 @@ Oracle D is not trained yet.
   inconclusive there. Without seed 0 the oracle reaches 72% and 63% against a baseline of
   81% and 54% on the same seeds.
 - **Oracle C seed 0 was a bad run, not a property of C** (see below).
+- **The oracle works for D** (0% to 92.7%, source 96.3%), although D has C's shape and grasp:
+  the 7 cm block is learnable. D is 26 points above augmentation (66.7%), the largest room
+  left for methods that use target videos.
 - **High variance.** Success moves by tens of points across seeds and between checkpoints
   of one run ((a) seed 1: 100% vs 21%; C alone: 87% vs 18% on C). The Wilson interval pools
   the three seeds' rollouts and does not include that spread; compare methods per seed and
@@ -121,7 +131,7 @@ y; the opening is 8.5 cm, so a 7 cm block leaves 0.75 cm per side and a 6 cm one
 
 ## Limits
 
-- Oracle D is missing; the C-alone diagnosis has one seed and validation rollouts only.
+- The C-alone diagnosis has one seed and validation rollouts only.
 - Every checkpoint, the oracle's too, is selected on source validation rollouts; this may
   understate the oracle on its target.
 - The expert lost its 90° grasp turns after the 100-demo result (R2); R2 stays at 300. The

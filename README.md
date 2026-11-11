@@ -24,12 +24,13 @@ start for every object) and expert settings are shared. Defined in
 | B | 9 x 6 x 6 block, red | geometry | as source (across the 6 cm side) | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/B-deterministic-n200-seed200000) | 200,000 | 99.0% |
 | C | 9 x 7 x 6 block, red | geometry and grasp width | across the 7 cm side, 2 cm above the centre | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/C-deterministic-n200-seed300000) | 300,000 | 100% |
 | D | 9 x 7 x 6 block, blue | appearance, geometry and grasp width | as C | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/D-deterministic-n200-seed400000) | 400,000 | 100% |
+| E | 6 x 9 x 6 block, red | behaviour: 9 cm does not fit the gripper | across the 6 cm side, gripper turned by 90° | [200](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/E-deterministic-n200-seed500000) | 500,000 | 93.9% |
 
 Targets are action-free videos for every method; their stored actions are only for the
 oracle (d) and evaluation. Blocks come from the fork's `object_size` argument: the 9 cm side
-lies along x, and success needs the whole block inside the 12 cm square. The expert never
-turns the grasp by 90 degrees, for any object (9 cm does not fit the 8.5 cm gripper, so
-cubes do not turn either). C and D are grasped higher because the gripper linkage hits a
+lies along x (along y for E), and success needs the whole block inside the 12 cm square. The
+expert never turns the grasp by 90 degrees, except for E, whose 9 cm side lies across the
+8.5 cm gripper ([target_E.md](docs/experiments/target_E.md)). C and D are grasped higher because the gripper linkage hits a
 7 cm block at its centre height (47% of episodes needed a second grasp attempt; 12% when
 grasping 2 cm higher, the same as the source).
 
@@ -42,9 +43,9 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 
 | Method | State | Where |
 |---|---|---|
-| Data: source and targets A, B, C, D | Done | [Objects](#objects) |
+| Data: source and targets A, B, C, D, E | Done | [Objects](#objects) |
 | (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
-| (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C; D not trained | [baselines.md](docs/experiments/baselines.md) |
+| (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D; E training | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
 | (b) IDM, (c) DANN | Not started; interface fixed | [Pseudo-labels](#data-and-models), `configs/act_idm_A.toml` |
 
@@ -57,14 +58,17 @@ Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 | A (blue cube) | 0.3 ± 0.6% | **98.7 ± 1.5%** | 85.7 ± 14.0% |
 | B (red 9x6x6 block) | 82.3 ± 16.0% | 90.7 ± 10.1% | 88.3 ± 5.9% |
 | C (red 9x7x6 block) | 59.0 ± 20.0% | 68.0 ± 16.5% | 46.0 ± 37.5% |
-| D (blue 9x7x6 block) | 0% | **66.7 ± 7.6%** | not run |
+| D (blue 9x7x6 block) | 0% | **66.7 ± 7.6%** | 92.7 ± 4.2% |
+| E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | training |
 
 - **The baseline's gap is colour, not shape**: it fails on the blue objects and transfers
   to the red blocks.
 - **Colour jitter alone closes that gap**: (e) uses no target data and reaches 98.7% on A,
   above the oracle, and 66.7% on D. On A nothing is left for (b) and (c) to gain over (e);
-  the room is on the 7 cm blocks C and D, where no method passes 70%
-  ([augmentation.md](docs/experiments/augmentation.md)).
+  on D the oracle is 26 points above it ([augmentation.md](docs/experiments/augmentation.md)).
+- **Target E changes the behaviour, not the appearance**: its 9 cm side does not fit the
+  gripper, so the grasp must turn by 90°. Baseline and augmentation both fail (0%, 0.3%);
+  only target videos can show the turn ([target_E.md](docs/experiments/target_E.md)).
 - **Oracle C**: seed 0 was a bad run (3%); seeds 1 and 2 reach 72% and 63%, and ACT on C
   alone 87% on validation. Its mean stays below the baseline, so C gives no usable gap for
   R4 ([baselines.md](docs/experiments/baselines.md)).
@@ -139,7 +143,7 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 |---|---|
 | Episodes (`.npz`) | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block) |
 | LeRobot copies, one per collection (visualizer) | [source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [source-test](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-test), [A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A), [B](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-B), [C](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-C), [D](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-D); augmentation (e), 20 episodes for illustration: [source-augmented-sample](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-augmented-sample) |
-| ACT checkpoints | (a) [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic); (d) [-act-oracle-A](https://huggingface.co/Autobrik/ecse552-act-oracle-A), [-B](https://huggingface.co/Autobrik/ecse552-act-oracle-B), [-C](https://huggingface.co/Autobrik/ecse552-act-oracle-C); (e) [-act-augment](https://huggingface.co/Autobrik/ecse552-act-augment); diagnosis [-act-only-C](https://huggingface.co/Autobrik/ecse552-act-only-C); references: [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
+| ACT checkpoints | (a) [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic); (d) [-act-oracle-A](https://huggingface.co/Autobrik/ecse552-act-oracle-A), [-B](https://huggingface.co/Autobrik/ecse552-act-oracle-B), [-C](https://huggingface.co/Autobrik/ecse552-act-oracle-C), [-D](https://huggingface.co/Autobrik/ecse552-act-oracle-D); (e) [-act-augment](https://huggingface.co/Autobrik/ecse552-act-augment); diagnosis [-act-only-C](https://huggingface.co/Autobrik/ecse552-act-only-C); references: [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
 | Training curves | W&B `mu-robotics/ecse552` |
 
 Each collection records every seed, the scene and the expert's deliberate detours
@@ -173,9 +177,9 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 |---|---|
 | IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
 | DANN (c) on the IDM | Myriam |
-| Oracle (d) for D (needs `configs/act_oracle_D.toml`) | Brik |
+| Oracle (d) for E: test and write up when the runs end | Brik |
 | Augmentation (e): review the settings in [augmentation.md](docs/experiments/augmentation.md) | Gonzalo |
-| Decide which targets anchor (b) and (c), now that (e) solves A | Team |
+| Targets for (b) and (c): A as a check of the pipeline, then D and E, where (e) leaves room; first measure the IDM label error on E ([target_E.md](docs/experiments/target_E.md)) | Team |
 
 ## Collaborating
 
@@ -190,7 +194,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), references
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```
