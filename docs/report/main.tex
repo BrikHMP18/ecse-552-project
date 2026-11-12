@@ -870,7 +870,7 @@ to 41\%, and re-querying more often without averaging is worse.
 
 \paragraph{Were the constraints met?}
 R2 is decided (300 demonstrations). R3 and R6 are met by every policy measured: images
-only, at most 18~ms per call. The augmentation baseline meets R4 on A, B and D and R5 on
+only, at most 18~ms per call. The augmentation baseline meets R4 on A, B and D, not on E ($G_T = 0.00$), and R5 on
 the source. \todo{R1 and R3 for the IDM pipeline; R4 and R5 per target for (b) and (c).}
 
 \paragraph{Appearance does not need target videos.}
@@ -882,7 +882,9 @@ alternative that needs no target data and already exceeds the oracle on A.
 \paragraph{Behaviour does.}
 Augmentation changes what the policy tolerates in the image, not what it does. When the
 target needs another grasp it gains little (D: 66.7\% against an oracle of 92.7\%) or
-nothing (E: 0.3\%). These are the targets where action-free videos can add something, and
+nothing (E: 0.3\%). Labeled source demonstrations of the turned grasp do not help
+either (2.3\% on E): what is missing is when to turn, which only the target shows. These
+are the targets where action-free videos can add something, and
 where (b) and (c) should be judged. \todo{Interpret with the results of (b) and (c) on A,
 D and E.}
 
@@ -892,9 +894,9 @@ demonstrations were generated. The ACT paper reports the same direction between 
 and human demonstrations \citep{zhao2023act}.
 
 \paragraph{Checkpoint and seed variance.}
-Neither the lowest validation loss nor the last epoch is a reliable choice: in the 18
+Neither the lowest validation loss nor the last epoch is a reliable choice: in the 21
 runs of Figure~\ref{fig:selection} the selected checkpoint was \emph{best} 8 times and
-\emph{last} 10 times, with differences of up to 79 points. Selection needs closed-loop rollouts.
+\emph{last} 13 times, with differences of up to 79 points. Selection needs closed-loop rollouts.
 Across seeds, source success ranges from 77\% to 100\% and one oracle run failed (C,
 seed 0), so three seeds give wide intervals; the Wilson intervals pool the rollouts of
 the three seeds and do not include that spread. \todo{Cite prior reports of this effect (not yet in the
@@ -947,6 +949,16 @@ augmentation solves them (Section~\ref{sec:targetE}).
 \paragraph{Advantages.}
 \todo{Advantages supported by the final results (no target labels, no simulator state,
 IDM offline so the deployed policy costs the same as the baseline).}
+
+\paragraph{Conclusions of the baselines.}
+Before the methods that use target videos, the measured baselines give five conclusions.
+(1) An appearance shift does not need target videos: augmentation of the source data
+reaches 98.7\% on A, above the oracle. (2) A behaviour shift does: on E the source-only
+policies reach at most 2.3\% and the oracle 89.0\%. (3) The methods that use target
+videos must be judged on E and D, where augmentation leaves 89 and 26 points to the
+oracle; A only checks the pipeline. (4) B and C give no usable gap. (5) Success varies by
+tens of points across seeds and checkpoints, so every comparison needs several seeds and
+selection by rollouts.
 
 \paragraph{Conclusion.}
 \todo{Answer the research question: do action-free videos, labeled by an adapted IDM,

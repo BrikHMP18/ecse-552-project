@@ -6,6 +6,29 @@ exist only for the red **source** cube; each **target** object has only videos. 
 dynamics model (IDM), adapted with DANN, labels those videos, and an image-only ACT policy
 trains on both. Plan, methods (a)–(f), requirements R1–R6: [proposal](docs/proposal/main.pdf).
 
+## Where we are (11 November 2026)
+
+The base is done: baseline (a), augmentation (e) and oracle (d), 3 seeds each
+([results](#status-11-november-2026)). Methods (b) IDM and (c) DANN are not started.
+
+1. **Appearance shifts do not need target videos.** Colour jitter on the source data, with
+   no target data, reaches 98.7% on the blue cube A, above the oracle (85.7%).
+2. **Behaviour shifts do.** On E the grasp must turn by 90°: baseline 0%, augmentation
+   0.3%, oracle 89.0%. A baseline that also sees 100 turned source demos reaches 2.3%, so
+   the turn has to be learned from E's videos.
+3. **Judge (b) and (c) on E and D.** D leaves 26 points between augmentation (66.7%) and
+   the oracle (92.7%). Use A only to check the pipeline.
+4. **B and C give no usable gap**: B's baseline is already 82%, and C's oracle is below
+   its baseline.
+5. **Variance is high** (tens of points across seeds and checkpoints): always 3 seeds,
+   select checkpoints with rollouts, compare per seed.
+
+Next: train the IDM and measure its label error on A, D and E, with and without the turned
+source demos, before training any policy on its labels ([Next steps](#next-steps)).
+Details: [baselines.md](docs/experiments/baselines.md),
+[augmentation.md](docs/experiments/augmentation.md), [target_E.md](docs/experiments/target_E.md),
+[report](docs/report/main.pdf). Rules for coding agents: [AGENTS.md](AGENTS.md).
+
 ![Expert episode: front, side and wrist cameras](docs/episode.gif)
 
 ![Initial state of every object (seed 0): front, side and wrist cameras](docs/scene.png)
@@ -62,18 +85,10 @@ Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 | D (blue 9x7x6 block) | 0% | **66.7 ± 7.6%** | 92.7 ± 4.2% |
 | E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | **89.0 ± 7.2%** |
 
-- **The baseline's gap is colour, not shape**: it fails on the blue objects and transfers
-  to the red blocks.
-- **Colour jitter alone closes that gap**: (e) uses no target data and reaches 98.7% on A,
-  above the oracle, and 66.7% on D. On A nothing is left for (b) and (c) to gain over (e);
-  on D the oracle is 26 points above it ([augmentation.md](docs/experiments/augmentation.md)).
-- **Target E changes the behaviour, not the appearance**: its 9 cm side does not fit the
-  gripper, so the grasp must turn by 90°. Baseline and augmentation both fail (0%, 0.3%),
-  a baseline that also sees 100 turned source demos reaches 2.3%, and the oracle 89.0%: only target data can show the turn ([target_E.md](docs/experiments/target_E.md)).
-- **Oracle C**: seed 0 was a bad run (3%); seeds 1 and 2 reach 72% and 63%, and ACT on C
-  alone 87% on validation. Its mean stays below the baseline, so C gives no usable gap for
-  R4 ([baselines.md](docs/experiments/baselines.md)).
-- Success varies a lot between seeds and checkpoints; compare methods per seed.
+- **Oracle C**: seed 0 was a bad run (3%, confirmed on a second set of rollouts); seeds 1
+  and 2 reach 72% and 63% ([baselines.md](docs/experiments/baselines.md)).
+- **Control on E**: baseline on the source plus the 100 turned source demos, 2.3 ± 3.2% on
+  E and 84.3 ± 4.5% on source ([target_E.md](docs/experiments/target_E.md)).
 - Project data: the `deterministic` collections (cube yaw fixed at 0; expert without detours,
   at fixed speed and without 90° grasp turns). The `stochastic` ones (stock OCBench) and the
   results on earlier data ([act_original.md](docs/experiments/act_original.md)) are references.
@@ -196,7 +211,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render, make_report_figures
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), references
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), act_source_turned.toml (control), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```
