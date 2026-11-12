@@ -27,7 +27,8 @@ Next: train the IDM and measure its label error on A, D and E, with and without 
 source demos, before training any policy on its labels ([Next steps](#next-steps)).
 Details: [baselines.md](docs/experiments/baselines.md),
 [augmentation.md](docs/experiments/augmentation.md), [target_E.md](docs/experiments/target_E.md),
-[report](docs/report/main.pdf). Rules for coding agents: [AGENTS.md](AGENTS.md).
+[report](docs/report/main.pdf). Data and visualizer links: [Collections](#collections). Rules for coding agents:
+[AGENTS.md](AGENTS.md).
 
 ![Expert episode: front, side and wrist cameras](docs/episode.gif)
 
@@ -160,13 +161,30 @@ Fixed in [`configs/data.toml`](configs/data.toml) `[protocol]` before results:
 | | |
 |---|---|
 | Episodes (`.npz`) | [Autobrik/ecse552-ocbench-block](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block) |
-| LeRobot copies, one per collection (visualizer) | [source](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source), [source-test](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-test), [A](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A), [B](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-B), [C](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-C), [D](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-D); augmentation (e), 20 episodes for illustration: [source-augmented-sample](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-augmented-sample) |
+| LeRobot copies and visualizer | [Collections](#collections) below |
 | ACT checkpoints | (a) [ecse552-act-deterministic](https://huggingface.co/Autobrik/ecse552-act-deterministic); (d) [-act-oracle-A](https://huggingface.co/Autobrik/ecse552-act-oracle-A), [-B](https://huggingface.co/Autobrik/ecse552-act-oracle-B), [-C](https://huggingface.co/Autobrik/ecse552-act-oracle-C), [-D](https://huggingface.co/Autobrik/ecse552-act-oracle-D); (e) [-act-augment](https://huggingface.co/Autobrik/ecse552-act-augment); diagnosis [-act-only-C](https://huggingface.co/Autobrik/ecse552-act-only-C); references: [-act-stochastic](https://huggingface.co/Autobrik/ecse552-act-stochastic), [-act-deterministic-proprio](https://huggingface.co/Autobrik/ecse552-act-deterministic-proprio) |
 | Training curves | W&B `mu-robotics/ecse552` |
 
 Each collection records every seed, the scene and the expert's deliberate detours
 (`manifest.json`, `initial_states.csv`). Target actions are for the oracle (d) and evaluation
 only (R1); simulator state is never a model input (R3).
+
+### Collections
+
+Watch any episode in the browser with the visualizer (front, side and wrist cameras, actions
+and states).
+
+| Collection | Episodes (`.npz`, training data) | LeRobot copy | Visualizer |
+|---|---|---|---|
+| source, 300 demos | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/source-deterministic-n300-seed0) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-source%2Fepisode_0) |
+| source, 50 held-out demos | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/source-deterministic-test-n50-seed50000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-test) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-source-test%2Fepisode_0) |
+| source, turned grasp (IDM only) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/source-turned-n100-seed600000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-turned) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-source-turned%2Fepisode_0) |
+| A (blue cube) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/A-deterministic-n200-seed100000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-A) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-A%2Fepisode_0) |
+| B (red 9x6x6) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/B-deterministic-n200-seed200000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-B) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-B%2Fepisode_0) |
+| C (red 9x7x6) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/C-deterministic-n200-seed300000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-C) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-C%2Fepisode_0) |
+| D (blue 9x7x6) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/D-deterministic-n200-seed400000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-D) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-D%2Fepisode_0) |
+| E (red 6x9x6, turned grasp) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/E-deterministic-n200-seed500000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-E) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-E%2Fepisode_0) |
+| source with the augmentation of (e), 20 episodes | - | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-augmented-sample) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-source-augmented-sample%2Fepisode_0) |
 
 **Pseudo-labels** (the IDM → policy interface): a folder with one `episode_XXXXX.npy` per
 target episode, shape (T, 7) float32, the **absolute targets** ACT trains on (six joint

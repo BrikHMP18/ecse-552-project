@@ -3,7 +3,7 @@
     uv run --with 'lerobot[dataset]' python scripts/upload_lerobot_hf.py \
         data/source-deterministic-n300-seed0 data/A-deterministic-n200-seed100000
 
-One repository per collection: Autobrik/ecse552-ocbench-<object>[-test]. The .npz copy
+One repository per collection: Autobrik/ecse552-ocbench-<object>[-test][-turned]. The .npz copy
 (scripts/upload_dataset_hf.py) stays the training data; videos here are lossy.
 `--augment-sample N` publishes instead the first N episodes with the image augmentation of
 method (e), one random draw per episode, as an illustration (<repository>-augmented-sample).
@@ -74,8 +74,8 @@ no fixed dataset reproduces it. Actions and states are unchanged."""
 def publish(d: Path, user: str, work: Path, augment: int = 0) -> None:
     m = json.loads((d / "manifest.json").read_text())
     cfg = m["config"]
-    if (cfg.get("scene"), cfg.get("expert")) != ("fixed_yaw", "deterministic"):
-        raise SystemExit(f"{d}: not a project (deterministic) collection")
+    if cfg.get("scene") != "fixed_yaw" or cfg.get("expert") not in ("deterministic", "turned"):
+        raise SystemExit(f"{d}: not a project (deterministic or turned) collection")
     prov = dict(
         x.split("=", 1) for x in (d / "provenance.txt").read_text().splitlines() if "=" in x
     )
@@ -84,6 +84,7 @@ def publish(d: Path, user: str, work: Path, augment: int = 0) -> None:
     obj = cfg["object_name"]
     test = cfg.get("role") == "test"
     repo = f"{user}/ecse552-ocbench-{obj}{'-test' if test else ''}"
+    repo += "-turned" if cfg["expert"] == "turned" else ""
     repo += "-augmented-sample" if augment else ""
     root = work / repo.split("/")[1]
     shutil.rmtree(root, ignore_errors=True)
