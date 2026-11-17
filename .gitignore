@@ -8,6 +8,8 @@
 *.toc
 *.bbl
 *.blg
+*.nav
+*.snm
 
 # Course outline copy: instructor material, not for redistribution (repo is public)
 docs/project-info.md

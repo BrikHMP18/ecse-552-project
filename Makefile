@@ -2,12 +2,16 @@
 # The Word copies (main.docx, for Google Drive) also require pandoc.
 DOCS := proposal report
 
-.PHONY: all docx $(DOCS) clean
+.PHONY: all docx $(DOCS) presentation clean
 
 all: $(DOCS) docx
 
 $(DOCS):
 	cd docs/$@ && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+
+# Slides (Beamer), submitted as PDF.
+presentation:
+	cd docs/presentation && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
 
 # main.tex -> main.docx in each folder, for Google Drive: Times New Roman,
 # black only, justified, numbered sections and citations linked to the
@@ -24,4 +28,4 @@ docx:
 		python3 ../tools/docx_fix_tables.py main.docx $$(if [ "$$d" = proposal ]; then echo --compact-proposal; fi)) || exit 1; done
 
 clean:
-	for d in $(DOCS); do (cd docs/$$d && latexmk -c main.tex); done
+	for d in $(DOCS) presentation; do (cd docs/$$d && latexmk -c main.tex); done
