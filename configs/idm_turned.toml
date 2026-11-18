@@ -1,0 +1,10 @@
+# As idm.toml, plus the source demos with a turned grasp (IDM only; docs/experiments/target_E.md).
+collections = ["data/source-deterministic-n300-seed0", "data/source-turned-n100-seed600000"]
+
+image_size = 128
+pretrained = true
+epochs = 20
+batch_size = 64
+lr = 3e-4
+weight_decay = 1e-4
+seed = 0

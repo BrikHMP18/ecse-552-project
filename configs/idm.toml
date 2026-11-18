@@ -1,0 +1,11 @@
+# IDM for method (b) (lambda = 0): source demos only. Trains on the train split of each
+# collection and keeps the epoch with the lowest validation loss on their validation split.
+collections = ["data/source-deterministic-n300-seed0"]
+
+image_size = 128   # 224 keeps the stored resolution
+pretrained = true  # ImageNet ResNet-18
+epochs = 20
+batch_size = 64
+lr = 3e-4
+weight_decay = 1e-4
+seed = 0
