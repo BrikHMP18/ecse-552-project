@@ -245,10 +245,21 @@ Options if the team later labels generated videos instead of simulator videos:
   this tests visual shift, not geometry shift. Paid preview; no peer-reviewed paper.
 - **Veo 3.1 / Genie 3**: closed, no fine-tuning on our robot; arm kinematics may be
   implausible. Illustration only.
+- **Genie 4** (Google DeepMind, announced 27 October 2026; checked 18 November 2026):
+  real-time world model driven by text prompts, with native audio and SynthID watermarks.
+  Research preview for trusted testers; Project Genie (AI Ultra) and Gemini API / AI Studio
+  early access announced, no public API or pricing. Image-prompt input not confirmed; a
+  demo simulated an Apptronik humanoid, but no robot workflow is published. A candidate
+  only if it accepts our rendered first frame and keeps the UR5e and gripper consistent.
+  Sources (secondary, plus the model page): [DeepMind](https://deepmind.google/models/genie/),
+  [TechCrunch](https://techcrunch.com/2026/10/27/googles-genie-4-world-model-adds-audio-more-realistic-worlds-and-real-time-steering/),
+  [Auganix](https://www.auganix.org/xr-news-google-genie-4-world-model/).
 
 Caveats: no ground-truth actions in generated videos (evaluate by closed-loop
 success in simulation only); video frame rate and motion speed must match the
-10 Hz action increments, or the IDM infers wrongly scaled actions; generation is
+10 Hz action increments, or the IDM infers wrongly scaled actions; the IDM reads three
+synchronized cameras, while these models generate one view per video, so either generate
+consistent front, side and wrist views or use a single-camera IDM for this test; generation is
 billed per second (third-party estimates: about $0.05 to $0.40 per second for Veo
 3.1, about $0.10 for Omni Flash at 720p; verify on Google's pricing page).
 Recommended framing for the report: limitation and future work (C11), not a
