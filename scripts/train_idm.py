@@ -6,7 +6,7 @@
 Writes best.pt (lowest standardized validation MAE), last.pt, history.json (per-epoch train
 loss, validation loss and per-component error) and config.json in the output directory.
 --smoke trains one epoch on 10 episodes per split and collection, only to check that the
-pipeline runs. Mainly to avoid overspending credits on modal with faulty scripts. 
+pipeline runs. Mainly to avoid overspending credits on modal with faulty scripts.
 """
 
 import argparse

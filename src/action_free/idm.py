@@ -1,10 +1,10 @@
 """Inverse dynamics model (IDM) and its data.
 
 Our ACT trains on image-action pairs. However, we do not have actions, only videos.
-The goal of IDM is to predict the absolute target a_t from the images o_t and o_t+1 alone, two consecutive images.
-It trains on labeled source episodes. Target videos are read through their images only
-(labeled=False), so their actions and states never reach it and they are read separately, and only to measure 
-label error.
+The goal of IDM is to predict the absolute target a_t from the images o_t and o_t+1 alone,
+two consecutive images. It trains on labeled source episodes. Target videos are read through
+their images only (labeled=False), so their actions and states never reach it and they are
+read separately, and only to measure label error.
 
 Images are resized to 'image_size' (128 by default, 224 keeps the stored resolution). Splits
 follow 'data.split_of': train and validation by episode within a collection, and the held-out
