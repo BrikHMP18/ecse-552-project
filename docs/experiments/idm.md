@@ -132,3 +132,23 @@ Decided before training any policy on the labels:
   `act_idm_A.toml` (pipeline check), `act_idm_E.toml`, and `act_idm_E_nofilter.toml` (the
   filter as a measured ablation). Seeds 0 and 1 first.
 
+### Policies (b), seeds 0 and 1 (20 November 2026)
+
+Test success, 100 rollouts, checkpoint selected on 100 source validation rollouts. Seed 2
+is not trained yet, so these are not the final numbers. Baseline (a) and oracle (d) are the
+3-seed means of [baselines.md](baselines.md).
+
+| Config | Target episodes (seed 0, 1) | Selected (validation best / last) | Target, seed 0 | Target, seed 1 | Source, seed 0 | Source, seed 1 | (a) on target | (d) on target |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| `act_idm_A` | 195, 196 | last (52 / 81), best (98 / 88) | 63% | 89% | 88% | 96% | 0.3% | 85.7% |
+| `act_idm_E` | 179, 179 | last (34 / 36), best (86 / 79) | 98% | 94% | 43% | 88% | 0.0% | 89.0% |
+| `act_idm_E_nofilter` | 200, 200 | last (35 / 80), best (95 / 70) | 95% | 97% | 75% | 98% | 0.0% | 89.0% |
+
+- The IDM labels are good enough to train on: (b) reaches the oracle's level on E (94% to
+  98%; oracle seeds 87%, 97%, 83%) and on A (63%, 89%; oracle 70%, 97%, 90%).
+- With two seeds the filter shows no effect on E (98%, 94% with it; 95%, 97% without).
+- Source success of seed 0 is low on E (43% with the filter, 75% without; baseline 90.7%),
+  and its validation success already was (34% / 36%). Seed 1 keeps the source (88%, 98%).
+  R5 (source drop of at most 10 points) needs the third seed before any statement.
+- Models: `Autobrik/ecse552-act-idm-{A,E,E-nofilter}` on Hugging Face.
+
