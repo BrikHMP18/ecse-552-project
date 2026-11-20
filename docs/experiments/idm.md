@@ -152,3 +152,18 @@ is not trained yet, so these are not the final numbers. Baseline (a) and oracle 
   R5 (source drop of at most 10 points) needs the third seed before any statement.
 - Models: `Autobrik/ecse552-act-idm-{A,E,E-nofilter}` on Hugging Face.
 
+### Check: E in blue (object F, 20 November 2026)
+
+Question: would a target with E's turned grasp and A's colour leave room for DANN? 200 demos
+of F (`F-deterministic-n200-seed700000`, local only), label error of the existing IDMs, no
+training. `wrist3` in rad, gripper in [0, 1], IDM seeds 0 / 1 / 2.
+
+| IDM | `wrist3`, F | `wrist3`, E | Gripper, F | Gripper, E |
+|---|---|---|---|---|
+| `idm_turned` | 0.197 / 0.203 / 0.189 | 0.278 / 0.273 / 0.271 | 0.033 / 0.022 / 0.017 | 0.016 / 0.016 / 0.016 |
+| `idm` | 0.656 / 0.609 / 0.559 | 0.839 / 0.769 / 0.749 | 0.044 / 0.034 / 0.046 | 0.039 / 0.033 / 0.035 |
+
+The colour does not make E's labels worse, so F gives DANN nothing to fix; it is not added
+as a target. Open for the team: compare DANN with colour jitter on the IDM by label error on
+A and D first.
+
