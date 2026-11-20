@@ -73,3 +73,38 @@ uploaded to the dataset repository.
 2. Train IDM seeds 1 and 2 to check that the differences hold.
 3. Check whether E's worst episodes leave the source range, and why D's gripper error grows.
 4. Upload the chosen labels and train (b) with 3 seeds: A first as a pipeline check, then D and E.
+
+## Reproduction with 3 seeds (19 November 2026, Brik)
+
+Same code and configs (commit `bf5d734`), seeds 0, 1, 2 of both IDMs trained again on Modal
+(about one hour each on an A10G), evaluated and exported locally. Validation sMAE on the
+source: `idm` 0.025, 0.023, 0.026; `idm_turned` 0.023, 0.023, 0.023.
+
+Mean label error, seeds 0 / 1 / 2:
+
+| | wrist3, `idm` | wrist3, `idm_turned` | gripper, `idm` | gripper, `idm_turned` |
+|---|---:|---:|---:|---:|
+| Source (50 held-out demos) | 0.013 / 0.013 / 0.012 | 0.025 / 0.028 / 0.033 | 0.012 / 0.013 / 0.012 | 0.012 / 0.013 / 0.013 |
+| A | 0.053 / 0.054 / 0.044 | 0.043 / 0.046 / 0.041 | 0.020 / 0.017 / 0.015 | 0.021 / 0.014 / 0.015 |
+| D | 0.020 / 0.019 / 0.015 | 0.031 / 0.026 / 0.026 | 0.110 / 0.080 / 0.058 | 0.113 / 0.033 / 0.041 |
+| E | 0.839 / 0.769 / 0.749 | 0.278 / 0.273 / 0.271 | 0.039 / 0.033 / 0.035 | 0.016 / 0.016 / 0.016 |
+
+- **The table above is reproduced**, on the source, A and E, and across seeds.
+- **The gripper error on D is run-to-run noise, not a cost of the turned demos**: it ranges
+  from 0.058 to 0.110 for `idm` and from 0.033 to 0.113 for `idm_turned`.
+- **E's bad episodes are a full-turn ambiguity of the wrist.** In 14 of E's 200 episodes the
+  true `wrist3` target is below -4.5 rad in more than 10% of the frames. They are exactly
+  the episodes that `idm_turned` labels with an error above 0.5 rad (14, 13, 13 per seed),
+  and on those frames the label is the true target plus 2 pi (median signed error 6.14,
+  6.14, 5.75 rad). An image cannot tell an angle from the same angle one turn away, and
+  only 3 of the 100 turned source demos go there. No E episode leaves the range of the 400
+  source demos. Without these 20 episodes (any frame below -4.5 rad) the mean error of
+  `idm_turned` on E is 0.035 to 0.038 rad.
+- Inside such an episode the label jumps by about 2 pi (largest step between consecutive
+  labels: 7 rad). Unwrapping each episode's `wrist3` labels in time (`numpy.unwrap`, which
+  needs no target action) lowers E's mean error per episode from 0.21 to 0.07-0.09 rad and
+  the episodes above 0.5 rad from 13-14 to 4-6, but it does not remove them and it adds two
+  bad episodes on D for seed 2. Not applied: how to handle the ambiguity is open (team).
+- The exported labels (`data/labels/<target>-<idm>-seed<k>/`, A, D and E, both IDMs, 3
+  seeds) are local and not uploaded. No policy has been trained on them.
+
