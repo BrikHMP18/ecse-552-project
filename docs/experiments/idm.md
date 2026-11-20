@@ -135,35 +135,39 @@ Decided before training any policy on the labels:
 ### Policies (b), 3 seeds (20 November 2026)
 
 Test success, 100 rollouts per seed, checkpoint selected on 100 source validation rollouts;
-95% Wilson interval over the 300 rollouts. D is being evaluated.
+95% Wilson interval over the 300 rollouts.
 
 | Config | Object | Seed 0 | Seed 1 | Seed 2 | Mean | Std | 95% CI |
 |---|---|---:|---:|---:|---:|---:|---|
 | `act_idm_A` | A | 63% | 89% | 97% | 83.0% | 17.8 | [78.3, 86.8] |
 | `act_idm_A` | source | 88% | 96% | 94% | 92.7% | 4.2 | [89.1, 95.1] |
+| `act_idm_D` | D | 75% | 80% | 96% | 83.7% | 11.0 | [79.1, 87.4] |
+| `act_idm_D` | source | 96% | 94% | 90% | 93.3% | 3.1 | [89.9, 95.6] |
 | `act_idm_E` | E | 98% | 94% | 93% | 95.0% | 2.6 | [91.9, 96.9] |
 | `act_idm_E` | source | 43% | 88% | 82% | 71.0% | 24.4 | [65.6, 75.8] |
 | `act_idm_E_nofilter` | E | 95% | 97% | 94% | 95.3% | 1.5 | [92.3, 97.2] |
 | `act_idm_E_nofilter` | source | 75% | 98% | 85% | 86.0% | 11.5 | [81.6, 89.5] |
 
-Reference, 3-seed means of [baselines.md](baselines.md): baseline (a) 0.3% on A, 0.0% on E,
-90.7% on source; oracle (d) 85.7% on A, 89.0% on E.
+Reference, 3-seed means ([baselines.md](baselines.md), [augmentation.md](augmentation.md)):
+baseline (a) 0.3% on A, 0.0% on D and E, 90.7% on source; oracle (d) 85.7% on A, 92.7% on D,
+89.0% on E; augmentation (e) 98.7% on A, 66.7% on D, 0.3% on E.
 
 | Config | Target episodes kept (seeds 0, 1, 2) | Selected checkpoint (validation best / last) |
 |---|---|---|
 | `act_idm_A` | 195, 196, 195 | last (52 / 81), best (98 / 88), last (70 / 90) |
+| `act_idm_D` | 197, 200, 198 | best (96 / 90), best (99 / 91), last (88 / 96) |
 | `act_idm_E` | 179, 179, 177 | last (34 / 36), best (86 / 79), best (80 / 74) |
 | `act_idm_E_nofilter` | 200, 200, 200 | last (35 / 80), best (95 / 70), best (88 / 85) |
 
-- R4 holds on A and E: (b) recovers 0.97 of the oracle's gain on A and 1.07 on E
-  (requirement 0.5). The IDM labels are good enough to train on.
+- R4 holds on A, D and E: (b) recovers 0.97 of the oracle's gain on A, 0.90 on D and 1.07
+  on E (requirement 0.5). On D it is 17 points above augmentation (e) and 9 below the oracle. The IDM labels are good enough to train on.
 - R5 (source drop of at most 10 points) fails for `act_idm_E`: 19.7 points, driven by seed 0
   (43%, and 34% / 36% on validation). It holds for `act_idm_E_nofilter` (4.7 points) and
-  for A (no drop).
+  for A and D (no drop).
 - The filter shows no effect on E (95.0% with it, 95.3% without). The source difference
   between the two comes mostly from seed 0 and is within the spread across seeds.
-- Seed 0 has the lowest source success in all three configs.
-- Models: `Autobrik/ecse552-act-idm-{A,E,E-nofilter}` on Hugging Face.
+- Seed 0 has the lowest source success in the A and E configs, not on D.
+- Models: `Autobrik/ecse552-act-idm-{A,D,E,E-nofilter}` on Hugging Face.
 
 ### Check: E in blue (object F, 20 November 2026)
 

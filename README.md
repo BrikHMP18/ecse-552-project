@@ -73,7 +73,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
 | (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D, E | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
-| (b) IDM | IDM done, 3 seeds; policies on its labels: A and E have 2 seeds, third seed and D running | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
+| (b) IDM | IDM done, 3 seeds; policies on its labels done with 3 seeds on A, D, E; not yet in the report | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
 | (c) DANN | Not started | |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
