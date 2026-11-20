@@ -51,16 +51,16 @@ def _cube_rgb(env):
 
 
 def test_objects_follow_proposal_colours_and_sizes():
-    """Red: source, B, C, E; blue: A, D. Cubes of 6 cm; blocks 9 x 6 x 6, 9 x 7 x 6, 6 x 9 x 6."""
+    """Red: source, B, C, E; blue: A, D, F. Cubes of 6 cm; blocks 9x6x6, 9x7x6, 6x9x6 cm."""
     sizes = {"source": (6, 6, 6), "A": (6, 6, 6), "B": (9, 6, 6), "C": (9, 7, 6), "D": (9, 7, 6)}
-    sizes["E"] = (6, 9, 6)
+    sizes["E"] = sizes["F"] = (6, 9, 6)
     assert set(sizes) == set(OBJECTS)
     for name, size in sizes.items():
         env = make_env(STATE_ENV, name)
         env.reset(seed=0)
         u = env.unwrapped
         red, _, blue = _cube_rgb(env)
-        assert (blue > red) == (name in ("A", "D"))
+        assert (blue > red) == (name in ("A", "D", "F"))
         np.testing.assert_allclose(u._model.geom_size[u._cube_geom_ids_list[0][0]] * 200, size)
         env.close()
 

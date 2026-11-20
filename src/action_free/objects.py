@@ -78,6 +78,11 @@ OBJECTS: dict[str, ObjectSpec] = {
             "red 6x9x6 cm block (behaviour: grasp turned by 90 degrees)",
             {"cube_colors": ("red",), "object_size": (0.06, 0.09, 0.06)},
         ),
+        ObjectSpec(
+            "F",
+            "blue 6x9x6 cm block (E in blue: behaviour and appearance)",
+            {"cube_colors": ("blue",), "object_size": (0.06, 0.09, 0.06)},
+        ),
     )
 }
 

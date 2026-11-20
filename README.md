@@ -73,7 +73,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
 | (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D, E | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
-| (b) IDM | IDM done, 3 seeds; policies on its labels running (A, E) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,E}.toml` |
+| (b) IDM | IDM done, 3 seeds; policies on its labels: A and E have 2 seeds, third seed and D running | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
 | (c) DANN | Not started | |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
@@ -232,7 +232,7 @@ episodes whose labels jump).
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render, make_report_figures
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_{A,E,E_nofilter}.toml (b), act_only_C.toml (diagnosis), act_source_turned.toml (control), references
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_{A,D,E,E_nofilter}.toml (b), act_only_C.toml (diagnosis), act_source_turned.toml (control), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```

@@ -15,6 +15,7 @@ target_C_videos = 300_000
 target_D_videos = 400_000
 target_E_videos = 500_000    # added 11 November 2026 (behaviour shift: turned grasp)
 source_turned_demos = 600_000  # labeled cube demos with the grasp turned by 90 degrees: IDM training only
+target_F_videos = 700_000    # E in blue (20 November 2026): IDM label-error check only so far
 validation = 900_000         # rollouts for checkpoint selection and the R2 decision (source only)
 test = 1_000_000             # final rollouts: each selected checkpoint once, every object
 
@@ -49,4 +50,4 @@ r2_decision = "300 source demos for every method (10 Nov 2026: 100 demos reach 3
 [hub]
 # Public Hugging Face copy of the collections above; training downloads this exact revision.
 dataset = "Autobrik/ecse552-ocbench-block"
-revision = "f3acca5265bc998fc0b1ef7c5c4bd2675e2a6e8e"  # adds labels/ of idm_turned for A and E, seeds 0 and 1 (19 Nov 2026); collections as in b7ef4c6: adds target E and source-turned (11 Nov 2026; oracle E trained from b50de4d, same E); other collections as in f739635 (re-recorded without 90-degree grasp turns, 10 Nov)
+revision = "d78127c54822c93b135ceb3aac5ae56e9f9030fa"  # adds labels/ of idm_turned for A, D, E, seeds 0-2 (20 Nov 2026; seeds 0 and 1 of A and E trained from f3acca5, same labels); collections as in b7ef4c6: adds target E and source-turned (11 Nov 2026; oracle E trained from b50de4d, same E); other collections as in f739635 (re-recorded without 90-degree grasp turns, 10 Nov)
