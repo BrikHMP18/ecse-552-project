@@ -105,6 +105,30 @@ Mean label error, seeds 0 / 1 / 2:
   needs no target action) lowers E's mean error per episode from 0.21 to 0.07-0.09 rad and
   the episodes above 0.5 rad from 13-14 to 4-6, but it does not remove them and it adds two
   bad episodes on D for seed 2. Not applied: how to handle the ambiguity is open (team).
-- The exported labels (`data/labels/<target>-<idm>-seed<k>/`, A, D and E, both IDMs, 3
-  seeds) are local and not uploaded. No policy has been trained on them.
+
+## Label filter and first policies (b) (19 November 2026, Brik)
+
+Decided before training any policy on the labels:
+
+- One IDM for every target: `idm_turned` (never chosen per target by target label error, R1).
+  The policy with training seed k uses the labels of the IDM with seed k
+  (`labels/<target>-deterministic-idm_turned-seed<k>/` in the dataset repository).
+- Filter (`max_label_step = 2.0` in `[[targets]]`, `act_original.plausible`): a target
+  episode is dropped when its labels move an arm joint more than 2 rad in one step. It reads
+  the labels only. The true targets stay below 1.1 rad per step in the 300 source demos and
+  in 99 of the 100 turned ones (one has a 3.0 rad step), and below 1.4 on A, D and E.
+- Check of the filter with the true targets (diagnostic only; "bad" = some `wrist3` label
+  more than 3 rad from the truth; ranges over the 3 IDM seeds, 200 episodes per target):
+
+| Target | Bad | Dropped | Bad kept | Good dropped | `wrist3` error per episode, all -> kept (rad) |
+|---|---:|---:|---:|---:|---:|
+| A | 4-5 | 4-5 | 0 | 0 | 0.033 -> 0.023 |
+| D | 0-2 | 0-3 | 0 | 0-1 | 0.028 -> 0.026 |
+| E | 20-23 | 21-23 | 1-2 | 0-2 | 0.21 -> 0.033 |
+
+- Limit: the dropped E episodes are the ones that need the wrist below about -4.5 rad, so
+  the policy sees fewer of those block poses. The test rollouts are not filtered.
+- Policies, same recipe as the oracle (300 source demos + 200 target videos, from scratch):
+  `act_idm_A.toml` (pipeline check), `act_idm_E.toml`, and `act_idm_E_nofilter.toml` (the
+  filter as a measured ablation). Seeds 0 and 1 first.
 

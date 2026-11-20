@@ -147,6 +147,17 @@ def _fake_labelled_collection(root, num_episodes, steps=12):
     return target, labels
 
 
+def test_plausible_drops_episodes_whose_labels_jump(tmp_path):
+    from action_free.act_original import plausible
+
+    target, labels = _fake_labelled_collection(tmp_path, num_episodes=3)
+    files = sorted(target.glob("episode_*.npz"))
+    jump = np.load(labels / "episode_00001.npy")
+    jump[5:, 5] += 2 * np.pi  # a full turn of the last wrist joint
+    np.save(labels / "episode_00001.npy", jump)
+    assert plausible(files, labels, max_step=2.5) == [files[0], files[2]]
+
+
 def test_checkpoint_selection_rule():
     from action_free.evaluate import choose_checkpoint
 

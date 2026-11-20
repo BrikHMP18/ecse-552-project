@@ -1,6 +1,6 @@
-# Methods (b)/(c): act_deterministic.toml plus target A's action-free videos labelled by the
-# IDM (unadapted for (b), DANN-adapted for (c)). `actions` is a pseudo-label folder in the
-# dataset repository (README: Pseudo-labels); its stored actions are never read (R1).
+# Method (b): act_deterministic.toml plus target A's action-free videos labelled by the
+# unadapted IDM `idm_turned`; their stored actions are never read (R1). Episodes whose labels
+# jump more than `max_label_step` in one step are dropped.
 
 data_dir = "data/source-deterministic-n300-seed0"
 num_episodes = 300
@@ -20,4 +20,5 @@ wandb_project = "ecse552"
 [[targets]]
 dir = "data/A-deterministic-n200-seed100000"
 num_episodes = 200
-actions = "labels/A-deterministic-idm-seed0"   # replace with the IDM's folder
+actions = "labels/A-deterministic-idm_turned-seed{seed}"  # {seed} = training seed
+max_label_step = 2.0  # rad; source demos stay below 1.1 (docs/experiments/idm.md)

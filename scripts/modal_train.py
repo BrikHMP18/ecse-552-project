@@ -149,7 +149,7 @@ def prepare(
     """Download the collections once, export ACT HDF5 per source size; create the model repo."""
     from huggingface_hub import HfApi, snapshot_download
 
-    from action_free.act_original import export_dataset
+    from action_free.act_original import export_dataset, plausible
     from action_free.data import detour_files, episode_files
 
     local = Path(f"/data/{dataset.replace('/', '__')}/{revision}")
@@ -175,10 +175,14 @@ def prepare(
         collections = [(files, None)]
         for t in targets:
             labels = None if t["actions"] == "true" else local / t["actions"]
-            collections.append((episode_files(local / t["folder"], t["num_episodes"]), labels))
+            target_files = episode_files(local / t["folder"], t["num_episodes"])
             tag += (
                 f"+{t['folder']}-n{t['num_episodes']}-{'true' if labels is None else labels.name}"
             )
+            if t["max_label_step"]:
+                target_files = plausible(target_files, labels, t["max_label_step"])
+                tag += f"-step{t['max_label_step']}"
+            collections.append((target_files, labels))
         out = local / "act_hdf5" / source / tag
         if not (out / "episodes.json").exists():
             export_dataset(collections, out, use_robot_state=use_robot_state)
@@ -263,12 +267,12 @@ def train(cfg: dict, data: dict, run_path: str, seed: int, provenance: dict, mod
 
 
 @app.function(image=image, timeout=9 * 3600)
-def orchestrate(runs: list, provenance: dict, model_repo: str | None) -> list:
+def orchestrate(runs: list, model_repo: str | None) -> list:
     """Spawn one training container per run and wait for all. With --detach, Modal keeps only
     the last function triggered by the local process alive if it disconnects, so the runs are
     spawned from here."""
     calls = []
-    for cfg, data, run_path, seed in runs:
+    for cfg, data, run_path, seed, provenance in runs:
         calls.append(train.spawn(cfg, data, run_path, seed, provenance, model_repo))
         print(f"launched {run_path}", flush=True)
     return [call.get() for call in calls]
@@ -311,14 +315,21 @@ def main(
         raise SystemExit(f"Commit your changes before a run that publishes:\n{dirty}")
 
     source = _hub_path(cfg["data_dir"])
-    targets = [
-        {
-            "folder": _hub_path(t["dir"]),
-            "num_episodes": 10 if smoke else int(t["num_episodes"]),
-            "actions": "true" if t.get("actions", "true") == "true" else _hub_path(t["actions"]),
-        }
-        for t in cfg.get("targets", [])
-    ]
+
+    def targets_for(seed: int) -> list[dict]:
+        """The config's targets; `{seed}` in a labels folder is the training seed."""
+        return [
+            {
+                "folder": _hub_path(t["dir"]),
+                "num_episodes": 10 if smoke else int(t["num_episodes"]),
+                "actions": "true"
+                if t.get("actions", "true") == "true"
+                else _hub_path(t["actions"]).format(seed=seed),
+                "max_label_step": t.get("max_label_step"),
+            }
+            for t in cfg.get("targets", [])
+        ]
+
     provenance = {
         "project_commit": _git("rev-parse", "HEAD"),
         "project_dirty": bool(dirty),
@@ -328,7 +339,6 @@ def main(
         "dataset": hub["dataset"],
         "dataset_revision": hub["revision"],
         "dataset_folder": source,
-        "targets": targets,
         "gpu": GPU,
         "model_repo": repo,
     }
@@ -336,12 +346,16 @@ def main(
         repo=repo, dataset=hub["dataset"], revision=hub["revision"], config=config
     )
     exclude, state = cfg.get("exclude_detours", False), cfg.get("use_robot_state", False)
-    exported = prepare.remote(
-        hub["dataset"], hub["revision"], source, sizes, targets, exclude, state, repo, card
-    )
-    runs = []
-    for n in sizes:
-        for s in (int(x) for x in seeds.split(",")):
-            runs.append((cfg, exported[n], f"{run_root}/n{n}/seed{s}", s))
-    for run_path in orchestrate.remote(runs, provenance, repo):
+    runs, exported = [], {}
+    for s in (int(x) for x in seeds.split(",")):
+        targets = targets_for(s)
+        key = str(targets)
+        if key not in exported:
+            exported[key] = prepare.remote(
+                hub["dataset"], hub["revision"], source, sizes, targets, exclude, state, repo, card
+            )
+        for n in sizes:
+            run = (cfg, exported[key][n], f"{run_root}/n{n}/seed{s}", s)
+            runs.append((*run, {**provenance, "targets": targets}))
+    for run_path in orchestrate.remote(runs, repo):
         print("finished:", run_path)

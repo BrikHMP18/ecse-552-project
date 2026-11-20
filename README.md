@@ -23,8 +23,9 @@ The base is done: baseline (a), augmentation (e) and oracle (d), 3 seeds each
 5. **Variance is high** (tens of points across seeds and checkpoints): always 3 seeds,
    select checkpoints with rollouts, compare per seed.
 
-Next: train the IDM and measure its label error on A, D and E, with and without the turned
-source demos, before training any policy on its labels ([Next steps](#next-steps)).
+IDM (19 November): trained with 3 seeds; one IDM (`idm_turned`) labels every target, and
+episodes whose labels jump a full wrist turn are dropped ([idm.md](docs/experiments/idm.md)).
+Next: policies (b) on those labels (A, E; running), then DANN ([Next steps](#next-steps)).
 Details: [baselines.md](docs/experiments/baselines.md),
 [augmentation.md](docs/experiments/augmentation.md), [target_E.md](docs/experiments/target_E.md),
 [report](docs/report/main.pdf). Data and visualizer links: [Collections](#collections). Rules for coding agents:
@@ -72,7 +73,8 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
 | (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D, E | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
-| (b) IDM, (c) DANN | Not started; interface fixed | [Pseudo-labels](#data-and-models), `configs/act_idm_A.toml` |
+| (b) IDM | IDM done, 3 seeds; policies on its labels running (A, E) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,E}.toml` |
+| (c) DANN | Not started | |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 (`third_party/act`, unmodified), images only, 300 source demos.
@@ -192,7 +194,8 @@ positions and the gripper opening in [0, 1], as `actions.to_absolute` returns; T
 `length`), plus `labels.json` (collection, IDM checkpoint, commit). The exporter then never
 reads those episodes' stored actions or states (R1, R3). Upload the folder to the dataset
 repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
-(`configs/act_idm_A.toml`).
+(`configs/act_idm_A.toml`; `{seed}` in the path is the training seed, `max_label_step` drops
+episodes whose labels jump).
 
 ## Decisions that differ from the proposal
 
@@ -211,8 +214,8 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 
 | Step | Owner |
 |---|---|
-| IDM (`idm.py`): predicts absolute targets from (o_t, o_t+1); writes pseudo-labels (format above) | Zheng Ye |
-| DANN (c) on the IDM | Myriam |
+| Policies (b) on the IDM labels: A, E, then D ([idm.md](docs/experiments/idm.md)) | Gonzalo, Brik |
+| DANN (c) on the IDM (`idm.py`) | Zheng Ye, Myriam |
 | Augmentation (e): review the settings in [augmentation.md](docs/experiments/augmentation.md) | Gonzalo |
 | Targets for (b) and (c): A as a check of the pipeline, then D and E, where (e) leaves room; first measure the IDM label error on E ([target_E.md](docs/experiments/target_E.md)) | Team |
 
@@ -229,7 +232,7 @@ repository as `labels/<name>/` and point a config's `[[targets]] actions` at it
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
 scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render, make_report_figures
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_A.toml (b/c), act_only_C.toml (diagnosis), act_source_turned.toml (control), references
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_{A,E,E_nofilter}.toml (b), act_only_C.toml (diagnosis), act_source_turned.toml (control), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```

@@ -129,6 +129,13 @@ def _pseudo_labels(labels: Path, f: Path, steps: int) -> np.ndarray:
     return a.astype(np.float32)
 
 
+def plausible(files: list[Path], labels: Path, max_step: float) -> list[Path]:
+    """The episodes whose pseudo-labels never move an arm joint more than `max_step` radians
+    in one step (an IDM error, e.g. a full-turn ambiguity). Uses the labels only (R1)."""
+    step = lambda f: np.abs(np.diff(np.load(Path(labels) / f"{f.stem}.npy")[:, :6], axis=0))  # noqa: E731
+    return [f for f in map(Path, files) if step(f).max() <= max_step]
+
+
 def export_dataset(
     collections: list[tuple[list[Path], Path | None]], out_dir: Path, use_robot_state: bool = False
 ) -> list[dict]:
