@@ -5,7 +5,7 @@ member presents and is graded individually. Slides in PDF on myCourses by **Nove
 own laptop.
 
 Slides: [`main.tex`](main.tex) (Beamer), built with `make presentation` into
-[`main.pdf`](main.pdf). 15 slides and 3 backup slides; numbers come from the report. Parts
+[`main.pdf`](main.pdf). 16 slides and 4 backup slides; numbers come from the report. Parts
 that wait for the IDM and DANN results are red `TODO`s.
 
 | Slides | Content (rubric) | Presenter (proposed) |
@@ -14,10 +14,10 @@ that wait for the IDM and DANN results are red `TODO`s.
 | 7-8 | Pipeline, IDM | Zheng Ye |
 | 9 | DANN | Myriam |
 | 10-11 | Policy, alternatives, evaluation, augmentation result | Gonzalo |
-| 12-15 | Target E, comparison, constraints, conclusions | Brik |
+| 12-16 | Target E, comparison, (b) on E, constraints, conclusions | Brik |
 
-Videos: slides 3, 11 and 12 show frames of a rollout and a "Video" button that opens
-`videos/{task,appearance,behaviour}.mp4` (the PDF cannot hold video: keep `videos/` next to
+Videos: slides 3, 11, 12 and 14 show frames of a rollout and a "Video" button that opens
+`videos/{task,appearance,behaviour,idm}.mp4` (the PDF cannot hold video: keep `videos/` next to
 `main.pdf` on the laptop; if the viewer blocks the button, open the file). The rollouts are
 illustrations on validation seeds, one per case; `make_videos.sh` rebuilds them.
 

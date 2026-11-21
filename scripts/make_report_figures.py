@@ -2,7 +2,7 @@
 
     uv run --with matplotlib python scripts/make_report_figures.py
 
-Writes docs/report/figures/{results,selection,curves,wrist}.png. Runs that are not
+Writes docs/report/figures/{results,selection,curves,wrist,labels}.png. Runs that are not
 downloaded and tested yet are left out, so the figures fill in as results arrive.
 """
 
@@ -16,9 +16,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 OUT = Path("docs/report/figures")
-BLUE, ORANGE, AQUA, INK, MUTED, GRID = (
+BLUE, ORANGE, PURPLE, AQUA, INK, MUTED, GRID = (
     "#2a78d6",
     "#eb6834",
+    "#7c4dbd",
     "#1baf7a",
     "#1f1f1e",
     "#6b6a64",
@@ -26,9 +27,11 @@ BLUE, ORANGE, AQUA, INK, MUTED, GRID = (
 )
 OBJECTS = ("source", "A", "B", "C", "D", "E")
 ORACLES = ("A", "B", "C", "D", "E")
-METHODS = (  # label, colour, run directory per test object
+IDM_TARGETS = ("A", "D", "E")  # (b) is not run on B and C: no usable gap
+METHODS = (  # label, colour, run directory per test object (None: not run)
     ("(a) Source only", BLUE, lambda o: "act_deterministic"),
     ("(e) Augmentation", ORANGE, lambda o: "act_augment"),
+    ("(b) Unadapted IDM for that target", PURPLE, lambda o: f"act_idm_{o}"),
     ("(d) Oracle for that target", AQUA, lambda o: f"act_oracle_{o}"),
 )
 plt.rcParams.update(
@@ -52,18 +55,18 @@ def test(run: str, obj: str) -> list[float]:
 
 def results() -> None:
     fig, ax = plt.subplots(figsize=(6.6, 2.6))
-    width = 0.27
+    width = 0.21
     for m, (label, colour, run) in enumerate(METHODS):
         for i, obj in enumerate(OBJECTS):
             v = test(run(obj), obj) if obj != "source" or m < 2 else []
             if not v:
                 continue
-            x = i + (m - 1) * width
+            x = i + (m - 1.5) * width
             ax.bar(x, np.mean(v), width - 0.03, color=colour, label=label if i == 1 else None)
             ax.errorbar(x, np.mean(v), np.std(v, ddof=1), color=INK, lw=0.8, capsize=1.5)
             ax.scatter([x] * 3, v, s=5, color="white", edgecolor=INK, lw=0.5, zorder=3)
             top = max(max(v), np.mean(v) + np.std(v, ddof=1))
-            ax.text(x, top + 2, f"{np.mean(v):.0f}", ha="center", va="bottom", fontsize=6.5)
+            ax.text(x, top + 2, f"{np.mean(v):.0f}", ha="center", va="bottom", fontsize=6)
     names = ["Source\n(red cube)", "A\n(blue cube)", "B\n(red 9x6x6)", "C\n(red 9x7x6)",
              "D\n(blue 9x7x6)", "E\n(red 6x9x6)"]  # fmt: skip
     ax.set_xticks(range(len(OBJECTS)), names)
@@ -72,13 +75,14 @@ def results() -> None:
     ax.set_ylabel("Test success (%)")
     ax.grid(axis="y", color=GRID, lw=0.6)
     ax.set_axisbelow(True)
-    ax.legend(frameon=False, ncols=3, loc="upper center", bbox_to_anchor=(0.5, 1.2))
+    ax.legend(frameon=False, ncols=4, loc="upper center", bbox_to_anchor=(0.5, 1.2))
     fig.savefig(OUT / "results.png")
 
 
 def selection() -> None:
     runs = [("(a)", "act_deterministic"), ("(e)", "act_augment")]
     runs += [(f"(d) {t}", f"act_oracle_{t}") for t in ORACLES]
+    runs += [(f"(b) {t}", f"act_idm_{t}") for t in IDM_TARGETS]
     fig, ax = plt.subplots(figsize=(6.6, 2.2))
     x, ticks = 0, []
     for name, run in runs:
@@ -124,8 +128,9 @@ def selection() -> None:
 def curves() -> None:
     panels = [("(a) Source only", "act_deterministic"), ("(e) Augmentation", "act_augment")]
     panels += [(f"(d) Oracle {t}", f"act_oracle_{t}") for t in ORACLES]
+    panels += [(f"(b) IDM {t}", f"act_idm_{t}") for t in IDM_TARGETS]
     panels = [(n, r) for n, r in panels if any((d / "history.json").exists() for d in seeds(r))]
-    fig, axes = plt.subplots(2, 4, figsize=(6.6, 2.9), sharex=True, sharey=True)
+    fig, axes = plt.subplots(3, 4, figsize=(6.6, 4.2), sharex=True, sharey=True)
     for ax, (name, run) in zip(axes.flat, panels):
         for d in seeds(run):
             if not (d / "history.json").exists():
@@ -141,6 +146,8 @@ def curves() -> None:
         ax.grid(color=GRID, lw=0.5)
     for ax in axes.flat[len(panels) :]:
         ax.axis("off")
+    for ax in axes.flat[max(0, len(panels) - axes.shape[1]) : len(panels)]:
+        ax.tick_params(labelbottom=True)  # last panel of each column
     axes[0, 0].plot([], [], color=BLUE, label="Training")
     axes[0, 0].plot([], [], color=ORANGE, label="Validation")
     fig.legend(frameon=False, ncols=2, loc="upper center", bbox_to_anchor=(0.5, 1.07))
@@ -178,8 +185,42 @@ def wrist() -> None:
     fig.savefig(OUT / "wrist.png")
 
 
+def labels() -> None:
+    """IDM labels of the last wrist joint on E against the true targets (a diagnostic, R1):
+    the first episode the label filter drops, and the largest step per episode."""
+    from action_free.act_original import plausible
+    from action_free.idm import absolute_targets, split_files
+
+    lab = Path("data/labels/E-deterministic-idm_turned-seed0")
+    files = split_files(Path("data/E-deterministic-n200-seed500000"))
+    kept = set(plausible(files, lab, 2.0))
+    f = next(f for f in files if f not in kept)
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(6.6, 2.1), width_ratios=(1.4, 1))
+    ax.plot(absolute_targets(f)[:, 5], color=INK, lw=1, label="True target")
+    ax.plot(np.load(lab / f"{f.stem}.npy")[:, 5], color=PURPLE, lw=1, label="IDM label")
+    ax.set_xlabel(f"Step (E, {f.stem.replace('_', ' ')})")
+    ax.set_ylabel("Last wrist joint (rad)")
+    ax.legend(frameon=False, fontsize=7)
+    ax.grid(color=GRID, lw=0.5)
+    step = lambda a: np.abs(np.diff(a[:, :6], axis=0)).max()  # noqa: E731
+    src = [step(absolute_targets(f)) for f in split_files(Path("data", SOURCE))]
+    tgt = [step(np.load(lab / f"{f.stem}.npy")) for f in files]
+    bins = np.arange(0, 7.6, 0.25)
+    bx.hist(src, bins=bins, color=BLUE, alpha=0.8, label="Source demos, true targets")
+    bx.hist(tgt, bins=bins, color=PURPLE, alpha=0.6, label="E, IDM labels")
+    bx.axvline(2.0, color=MUTED, lw=0.8, ls="--")
+    bx.set_yscale("log")
+    bx.set_xlabel("Largest step per episode (rad)")
+    bx.set_ylabel("Episodes")
+    bx.legend(frameon=False, fontsize=6.5)
+    fig.tight_layout()
+    fig.savefig(OUT / "labels.png")
+
+
+SOURCE = "source-deterministic-n300-seed0"
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
-    for draw in (results, selection, curves, wrist):
+    for draw in (results, selection, curves, wrist, labels):
         draw()
         plt.close("all")

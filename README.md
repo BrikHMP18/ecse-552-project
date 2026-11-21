@@ -6,10 +6,10 @@ exist only for the red **source** cube; each **target** object has only videos. 
 dynamics model (IDM), adapted with DANN, labels those videos, and an image-only ACT policy
 trains on both. Plan, methods (a)–(f), requirements R1–R6: [proposal](docs/proposal/main.pdf).
 
-## Where we are (11 November 2026)
+## Where we are (21 November 2026)
 
-The base is done: baseline (a), augmentation (e) and oracle (d), 3 seeds each
-([results](#status-11-november-2026)). Methods (b) IDM and (c) DANN are not started.
+Done with 3 seeds: baseline (a), augmentation (e), oracle (d) and the unadapted IDM (b)
+([results](#status-21-november-2026)). DANN (c) is not started.
 
 1. **Appearance shifts do not need target videos.** Colour jitter on the source data, with
    no target data, reaches 98.7% on the blue cube A, above the oracle (85.7%).
@@ -22,10 +22,17 @@ The base is done: baseline (a), augmentation (e) and oracle (d), 3 seeds each
    its baseline.
 5. **Variance is high** (tens of points across seeds and checkpoints): always 3 seeds,
    select checkpoints with rollouts, compare per seed.
+6. **Action-free videos work.** With IDM pseudo-labels and no target action, (b) recovers
+   0.97, 0.90 and 1.07 of the oracle's gain on A, D and E (R4 met): 17 points above
+   augmentation on D, level with the oracle on E; on A augmentation is better.
+7. **The IDM labels only motions it has seen.** E needs the 100 turned source demos (wrist
+   error 0.79 → 0.27 rad); the remaining errors are full wrist turns, which a filter on the
+   labels drops without changing the success.
+8. **R5 fails on E** (source 71.0%, −19.7 points) because of one seed of three; it holds on
+   A and D, and on E without the filter (ablation).
 
-IDM (19 November): trained with 3 seeds; one IDM (`idm_turned`) labels every target, and
-episodes whose labels jump a full wrist turn are dropped ([idm.md](docs/experiments/idm.md)).
-Next: policies (b) on those labels (A, E; running), then DANN ([Next steps](#next-steps)).
+Next: DANN (c), compared with colour jitter on the IDM by label error on A and D first
+([Next steps](#next-steps)).
 Details: [baselines.md](docs/experiments/baselines.md),
 [augmentation.md](docs/experiments/augmentation.md), [target_E.md](docs/experiments/target_E.md),
 [report](docs/report/main.pdf). Data and visualizer links: [Collections](#collections). Rules for coding agents:
@@ -65,7 +72,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
     --revision <[hub] revision in configs/data.toml> --include "C-deterministic-*/*"
 ```
 
-## Status (11 November 2026)
+## Status (21 November 2026)
 
 | Method | State | Where |
 |---|---|---|
@@ -73,25 +80,27 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (a) Baseline: ACT on source only | Done, 3 seeds | [baselines.md](docs/experiments/baselines.md) |
 | (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D, E | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
-| (b) IDM | IDM done, 3 seeds; policies on its labels done with 3 seeds on A, D, E; not yet in the report | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
+| (b) IDM | Done, 3 seeds on A, D, E (and E without the label filter) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
 | (c) DANN | Not started | |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 (`third_party/act`, unmodified), images only, 300 source demos.
 
-| Tested on | (a) Baseline | (e) Augmentation | (d) Oracle for that target |
-|---|---:|---:|---:|
-| source (red cube) | 90.7 ± 12.1% | 95.0 ± 5.0% | - |
-| A (blue cube) | 0.3 ± 0.6% | **98.7 ± 1.5%** | 85.7 ± 14.0% |
-| B (red 9x6x6 block) | 82.3 ± 16.0% | 90.7 ± 10.1% | 88.3 ± 5.9% |
-| C (red 9x7x6 block) | 59.0 ± 20.0% | 68.0 ± 16.5% | 46.0 ± 37.5% |
-| D (blue 9x7x6 block) | 0% | **66.7 ± 7.6%** | 92.7 ± 4.2% |
-| E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | **89.0 ± 7.2%** |
+| Tested on | (a) Baseline | (e) Augmentation | (b) IDM for that target | (d) Oracle for that target |
+|---|---:|---:|---:|---:|
+| source (red cube) | 90.7 ± 12.1% | 95.0 ± 5.0% | 71.0–93.3% (per target) | 87.0–96.3% (per target) |
+| A (blue cube) | 0.3 ± 0.6% | **98.7 ± 1.5%** | 83.0 ± 17.8% | 85.7 ± 14.0% |
+| B (red 9x6x6 block) | 82.3 ± 16.0% | 90.7 ± 10.1% | - | 88.3 ± 5.9% |
+| C (red 9x7x6 block) | 59.0 ± 20.0% | 68.0 ± 16.5% | - | 46.0 ± 37.5% |
+| D (blue 9x7x6 block) | 0% | 66.7 ± 7.6% | 83.7 ± 11.0% | **92.7 ± 4.2%** |
+| E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | **95.0 ± 2.6%** | 89.0 ± 7.2% |
 
 - **Oracle C**: seed 0 was a bad run (3%, confirmed on a second set of rollouts); seeds 1
   and 2 reach 72% and 63% ([baselines.md](docs/experiments/baselines.md)).
 - **Control on E**: baseline on the source plus the 100 turned source demos, 2.3 ± 3.2% on
   E and 84.3 ± 4.5% on source ([target_E.md](docs/experiments/target_E.md)).
+- **(b) on the source**: 92.7% (A), 93.3% (D), 71.0% (E; seed 0 reaches 43%). E without the
+  label filter: 95.3% on E, 86.0% on source ([idm.md](docs/experiments/idm.md)).
 - Project data: the `deterministic` collections (cube yaw fixed at 0; expert without detours,
   at fixed speed and without 90° grasp turns). The `stochastic` ones (stock OCBench) and the
   results on earlier data ([act_original.md](docs/experiments/act_original.md)) are references.
@@ -214,10 +223,9 @@ episodes whose labels jump).
 
 | Step | Owner |
 |---|---|
-| Policies (b) on the IDM labels: A, E, then D ([idm.md](docs/experiments/idm.md)) | Gonzalo, Brik |
-| DANN (c) on the IDM (`idm.py`) | Zheng Ye, Myriam |
+| DANN (c) on the IDM (`idm.py`): label error on A and D first, against colour jitter on the IDM; then policies where the labels improve | Zheng Ye, Myriam |
 | Augmentation (e): review the settings in [augmentation.md](docs/experiments/augmentation.md) | Gonzalo |
-| Targets for (b) and (c): A as a check of the pipeline, then D and E, where (e) leaves room; first measure the IDM label error on E ([target_E.md](docs/experiments/target_E.md)) | Team |
+| Report and slides: red `\todo{}` for (c), contributions, conclusion; who presents what | Team |
 
 ## Collaborating
 

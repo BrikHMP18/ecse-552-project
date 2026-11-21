@@ -194,9 +194,11 @@
     \item Easier than the policy: it explains an action that already happened, not the
       expert's intent.
     \item Trains on the 300 source demos plus 100 source demos with a turned grasp
-      (IDM only).
-    \item \todo{Encoder, input resolution, optimizer, training length, source validation
-      error.}
+      (IDM only); one IDM labels every target.
+    \item ResNet-18 (ImageNet) per camera at 128~px, 9 input channels; AdamW, 20 epochs;
+      source validation sMAE 0.023.
+    \item Label error on the targets (diagnostic): A and D close to the source; E needs the
+      turned demos (wrist error 0.79 $\rightarrow$ 0.27~rad).
   \end{itemize}
   \src{Torabi et al.\ 2018; Baker et al.\ 2022; Morin et al.\ 2026}
 \end{frame}
@@ -324,17 +326,44 @@
     \midrule
     (a) & Source only & 0.3\% & 82.3\% & 59.0\% & 0.0\% & 0.0\% & 90.7\% \\
     (e) & Augmentation & \textbf{98.7\%} & \textbf{90.7\%} & \textbf{68.0\%} & 66.7\% & 0.3\% & 95.0\% \\
-    (b) & Unadapted IDM & \todo{} & -- & -- & \todo{} & \todo{} & \todo{} \\
+    (b) & Unadapted IDM & 83.0\% & -- & -- & 83.7\% & \textbf{95.0\%} & 71.0--93.3\% \\
     (c) & DANN-adapted IDM & \todo{} & -- & -- & \todo{} & \todo{} & \todo{} \\
-    (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & \textbf{89.0\%} & 87.0--96.3\% \\
+    (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & 89.0\% & 87.0--96.3\% \\
     \bottomrule
   \end{tabular}\par}
   \vspace{0.6em}
   \begin{itemize}
-    \item (b) and (c) are judged on D and E; A checks the pipeline. B and C leave no
-      usable gap (B: baseline already 82\%; C: oracle below baseline).
-    \item \todo{IDM label error on A, D and E, with and without the turned demos.}
-    \item \todo{(b) against (c); (c) against (e); $G_T$ per target.}
+    \item (b) recovers $G_T =$ 0.97 (A), 0.90 (D) and 1.07 (E) of the oracle's gain,
+      without any target action.
+    \item D: 17 points above augmentation. E: level with the oracle. A: augmentation is
+      better.
+    \item B and C leave no usable gap (B: baseline already 82\%; C: oracle below
+      baseline), so (b) is not run on them.
+    \item \todo{(b) against (c); (c) against (e).}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Result 4: the videos of E teach the policy when to turn}
+  \begin{columns}[c]
+    \begin{column}{0.5\textwidth}
+      \footnotesize
+      (e) Augmentation, on block E: \textbf{0.3\%}\\[1pt]
+      \strip{e_E}\\[4pt]
+      (b) IDM pseudo-labels from E's videos: \textbf{95.0\%}\\[1pt]
+      \strip{b_E}\\[2pt]
+      \hfill\play{idm}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \includegraphics[width=\linewidth]{../report/figures/labels.png}\\
+      \scriptsize IDM wrist labels against the truth on one E video, and the largest
+      step per episode.
+    \end{column}
+  \end{columns}
+  \vspace{0.3em}
+  \begin{itemize}
+    \item The IDM confuses wrist angles one full turn apart; a filter on the labels drops
+      those videos (about 10\% of E). Success is the same without it (95.3\%).
+    \item The IDM labels only motions it has seen in labeled source data.
   \end{itemize}
 \end{frame}
 
@@ -345,10 +374,11 @@
       \footnotesize
       \begin{tabular}{@{}ll@{}}
         \toprule
-        R1, R3 & Policy: met. \todo{IDM} \\
+        R1, R3 & Met: policy and IDM \\
         R2 & 300 demos (100 reach 37\%) \\
-        R4 & (e): met on A, B, D. \todo{(b), (c)} \\
-        R5 & (e): no drop. \todo{(b), (c)} \\
+        R4 & (e): A, B, D. (b): A, D, E. \todo{(c)} \\
+        R5 & (e): no drop. (b): A, D; \\
+           & not E ($-19.7$, one seed). \todo{(c)} \\
         R6 & Met: 10--18~ms per call \\
         \bottomrule
       \end{tabular}
@@ -357,8 +387,11 @@
       \begin{itemize}
         \item Our own ACT reached 23--49\%; replaced by the original.
         \item First targets were solved by augmentation; E was added afterwards.
-        \item High variance: one oracle run failed (C, seed 0).
-        \item \todo{Problems met with the IDM and DANN.}
+        \item High variance: one oracle run failed (C, seed 0); one (b) run lost the
+          source (E, seed 0).
+        \item The IDM could not label E from the source demos alone; its full-turn
+          errors needed a label filter.
+        \item \todo{Problems met with DANN.}
       \end{itemize}
     \end{column}
   \end{columns}
@@ -368,10 +401,12 @@
   \begin{itemize}
     \item Augmentation covers appearance; target videos are needed when the behaviour
       changes.
-    \item \todo{Answer: do action-free videos, labeled by an adapted IDM, close the gap
-      on D and E?}
+    \item Videos labeled by an unadapted IDM close the gap on D (0.90) and E (1.07), and
+      keep the source on A and D.
+    \item The IDM must have seen the motion in labeled source data.
+    \item \todo{Does adapting the IDM (c) add anything to (b)?}
     \item \textbf{Advantages:} no target labels, no simulator state, original ACT
-      unchanged. \todo{Confirm with the final results.}
+      unchanged; the IDM runs offline, so the policy costs the same (15~ms per call).
     \item \textbf{Limitations:} simulation only, simplified task (fixed yaw and start
       pose), three seeds with wide intervals, E designed after seeing results.
   \end{itemize}
@@ -384,7 +419,7 @@
   \centering
   \includegraphics[width=0.9\linewidth]{../report/figures/selection.png}
 
-  \small In 21 runs the selected checkpoint was \emph{best} 8 times and \emph{last} 13
+  \small In 30 runs the selected checkpoint was \emph{best} 13 times and \emph{last} 17
   times, with differences of up to 79 points.
 \end{frame}
 
@@ -396,20 +431,43 @@
   in the 300 source demos, 2.5\%.
 \end{frame}
 
-\begin{frame}{Backup: R4 for the augmentation baseline}
+\begin{frame}{Backup: R4 for augmentation (e) and the unadapted IDM (b)}
   \centering
   \small
-  \begin{tabular}{@{}lrrrl@{}}
+  \begin{tabular}{@{}lrrrrr@{}}
     \toprule
-    Target & Oracle gain & (e) gain & $G_T$ & R4 ($\geq 0.5$) \\
+    Target & Oracle gain & (e) gain & (e) $G_T$ & (b) gain & (b) $G_T$ \\
     \midrule
-    A & 85.4 points & 98.4 points & 1.15 & Met \\
-    B & 6.0 points & 8.4 points & 1.40 & Met; within the seed spread \\
-    C & $-13.0$ points & 9.0 points & -- & Inconclusive (oracle below baseline) \\
-    D & 92.7 points & 66.7 points & 0.72 & Met \\
-    E & 89.0 points & 0.3 points & 0.00 & Not met \\
+    A & 85.4 & 98.4 & 1.15 & 82.7 & 0.97 \\
+    B & 6.0 & 8.4 & 1.40 & -- & -- \\
+    C & $-13.0$ & 9.0 & -- & -- & -- \\
+    D & 92.7 & 66.7 & 0.72 & 83.7 & 0.90 \\
+    E & 89.0 & 0.3 & 0.00 & 95.0 & 1.07 \\
     \bottomrule
   \end{tabular}
+
+  \vspace{0.5em}
+  Gains in points over the source-only policy; R4 is met when $G_T \geq 0.5$. B is within
+  the seed spread; C is inconclusive (oracle below baseline).
+\end{frame}
+
+\begin{frame}{Backup: unadapted IDM (b), every seed}
+  \centering
+  \small
+  \begin{tabular}{@{}llrrrr@{}}
+    \toprule
+    Target & Tested on & Seed 0 & Seed 1 & Seed 2 & Mean \\
+    \midrule
+    A & A / source & 63 / 88\% & 89 / 96\% & 97 / 94\% & 83.0 / 92.7\% \\
+    D & D / source & 75 / 96\% & 80 / 94\% & 96 / 90\% & 83.7 / 93.3\% \\
+    E & E / source & 98 / 43\% & 94 / 88\% & 93 / 82\% & 95.0 / 71.0\% \\
+    E, no filter & E / source & 95 / 75\% & 97 / 98\% & 94 / 85\% & 95.3 / 86.0\% \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.5em}
+  Source success of the baseline: 90.7\%. R5 fails on E from seed 0 alone; without the
+  filter it holds ($-4.7$ points), within the spread across seeds.
 \end{frame}
 
 \end{document}

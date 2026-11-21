@@ -4,7 +4,7 @@
 #       --object <object> --seeds validation --num-episodes 2 --video-episodes 2 \
 #       --out-dir outputs/presentation/<clip>
 # Clips: a_source, a_A = act_deterministic seed 2; e_A, e_E = act_augment seed 2;
-# d_E = act_oracle_E seed 0. Run from the repository root: bash docs/presentation/make_videos.sh
+# d_E = act_oracle_E seed 0; b_E = act_idm_E seed 1 (the median of its three seeds on E). Run from the repository root: bash docs/presentation/make_videos.sh
 set -euo pipefail
 in=outputs/presentation
 out=docs/presentation
@@ -44,10 +44,11 @@ video() {
     -c:v libx264 -pix_fmt yuv420p -crf 20 $out/videos/$name.mp4
 }
 
-for c in a_source a_A e_A e_E d_E; do strip $c; done
+for c in a_source a_A e_A e_E d_E b_E; do strip $c; done
 video task a_source "(a) Source only, on the source cube"
 video appearance a_A "(a) Source only, on the blue cube A" e_A "(e) Augmentation, on the blue cube A"
 video behaviour e_E "(e) Augmentation, on block E" d_E "(d) Oracle for E, on block E"
+video idm e_E "(e) Augmentation, on block E" b_E "(b) IDM pseudo-labels from the videos of E"
 
 # The six objects at the start of an episode: wrist views of docs/scene.png in one row.
 f=""
