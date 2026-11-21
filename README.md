@@ -129,6 +129,8 @@ MUJOCO_GL=egl uv run python scripts/replay_episode.py data/source-deterministic-
 uv run python scripts/view_episode.py data/source-deterministic-n300-seed0 --episodes 0 1 2
 uv run python scripts/upload_dataset_hf.py data/source-deterministic-n300-seed0 data/A-deterministic-n200-seed100000
 uv run --with 'lerobot[dataset]' python scripts/upload_lerobot_hf.py data/*-deterministic-*   # one LeRobot dataset per collection
+uv run --with 'lerobot[dataset]' python scripts/upload_lerobot_hf.py data/E-deterministic-n200-seed500000 \
+    --labels idm_turned-seed0 --user <hf-user>   # with the pseudo-labels, for the visualizer
 
 # Train original ACT on Modal (pushes checkpoints to HF)
 modal run scripts/modal_train.py --smoke
@@ -196,6 +198,13 @@ and states).
 | D (blue 9x7x6) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/D-deterministic-n200-seed400000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-D) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-D%2Fepisode_0) |
 | E (red 6x9x6, turned grasp) | [folder](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/E-deterministic-n200-seed500000) | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-E) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-E%2Fepisode_0) |
 | source with the augmentation of (e), 20 episodes | - | [dataset](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-source-augmented-sample) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2FAutobrik%2Fecse552-ocbench-source-augmented-sample%2Fepisode_0) |
+| A (blue cube) with the IDM pseudo-labels (`idm_turned`, seed 0) | [labels](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/labels/A-deterministic-idm_turned-seed0) | [dataset](https://huggingface.co/datasets/gonmillan/ecse552-ocbench-A-idm_turned-seed0) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2Fgonmillan%2Fecse552-ocbench-A-idm_turned-seed0%2Fepisode_0) |
+| D (blue 9x7x6) with the IDM pseudo-labels (`idm_turned`, seed 0) | [labels](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/labels/D-deterministic-idm_turned-seed0) | [dataset](https://huggingface.co/datasets/gonmillan/ecse552-ocbench-D-idm_turned-seed0) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2Fgonmillan%2Fecse552-ocbench-D-idm_turned-seed0%2Fepisode_0) |
+| E (red 6x9x6, turned grasp) with the IDM pseudo-labels (`idm_turned`, seed 0) | [labels](https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block/tree/main/labels/E-deterministic-idm_turned-seed0) | [dataset](https://huggingface.co/datasets/gonmillan/ecse552-ocbench-E-idm_turned-seed0) | [watch](https://huggingface.co/spaces/lerobot/visualize_dataset?path=%2Fgonmillan%2Fecse552-ocbench-E-idm_turned-seed0%2Fepisode_0) |
+
+In the pseudo-label copies, `action` is the IDM's label of each step and `true_action` the
+expert's true absolute target, side by side to see the label error (for example the full
+wrist turns of E, episode 95). For viewing only: never train on them (R1).
 
 **Pseudo-labels** (the IDM → policy interface): a folder with one `episode_XXXXX.npy` per
 target episode, shape (T, 7) float32, the **absolute targets** ACT trains on (six joint

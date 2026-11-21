@@ -46,20 +46,25 @@ an IDM cannot label a motion it has never seen. The other joints remain accurate
 **The turned source demos fix most of it.** With `idm_turned`, the typical E episode is
 labeled as well as the source (median wrist3 error per episode 0.024 rad). The average stays
 at 0.28 rad because of a few bad episodes: 21 of 200 exceed 0.2 rad, and 13 exceed 0.5 rad.
-They may be the 14 episodes whose wrist leaves the range of the source demos; this has not
-been checked.
+*Corrected:* they are not outside the range of the source demos; the label is one full
+wrist turn (2 pi) away from the truth ([Reproduction with 3 seeds](#reproduction-with-3-seeds-19-november-2026-brik)).
 
 **But they cost something on D.** The gripper error on D triples (0.039 → 0.113). We do not
-know why yet, and with one training seed it may partly be noise.
+know why yet, and with one training seed it may partly be noise. *Corrected:* over 3 seeds it
+is run-to-run noise, not a cost of the turned demos (same section).
 
-**In short:** `idm_turned` is the IDM for E; for D the choice is open.
+**In short:** `idm_turned` is the IDM for E; for D the choice is open. *Superseded:* the team
+uses `idm_turned` for every target, since choosing per target by label error would use the
+targets' true actions (R1; [Label filter and first policies](#label-filter-and-first-policies-b-19-november-2026-brik)).
 
 ## Pseudo-labels
 
 `scripts/export_labels.py` labeled A, D and E with both IDMs, in the format of the README
 (Pseudo-labels), under `data/labels/<target>-<idm>-seed0/`. Every file matches its episode's
-length, and the errors recomputed from the files equal the table above. They are not yet
-uploaded to the dataset repository.
+length, and the errors recomputed from the files equal the table above. *Superseded:* the
+policies use the labels of Brik's 3-seed reproduction, in the dataset repository under
+`labels/`; LeRobot copies of seed 0 with the true actions alongside, for the visualizer, are
+linked in the README (Collections).
 
 ## Limits
 
@@ -73,6 +78,9 @@ uploaded to the dataset repository.
 2. Train IDM seeds 1 and 2 to check that the differences hold.
 3. Check whether E's worst episodes leave the source range, and why D's gripper error grows.
 4. Upload the chosen labels and train (b) with 3 seeds: A first as a pipeline check, then D and E.
+
+All four done in the sections below (one IDM for every target; 3 seeds; full-turn ambiguity
+and noise on D; labels and policies (b) with 3 seeds).
 
 ## Reproduction with 3 seeds (19 November 2026, Brik)
 
