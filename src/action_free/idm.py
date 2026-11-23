@@ -9,11 +9,16 @@ read separately, and only to measure label error.
 Images are resized to 'image_size' (128 by default, 224 keeps the stored resolution). Splits
 follow 'data.split_of': train and validation by episode within a collection, and the held-out
 source collection is the test set.
+
+With cfg["target"], training is domain-adversarial (DANN, method c): a discriminator tells
+source from target features, and a gradient reversal layer pushes the features to make them
+indistinguishable. The target videos are read through their images only (labeled=False).
 """
 
 from __future__ import annotations
 
 import json
+import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -173,6 +178,43 @@ class IDM(nn.Module):
         return self(obs, next_obs) * self.target_std + self.target_mean
 
 
+class GradReverse(torch.autograd.Function):
+    """Identity in the forward pass; multiplies the gradient by -lambd in the backward pass."""
+
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, lambd: float) -> torch.Tensor:
+        ctx.lambd = lambd
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad: torch.Tensor) -> tuple[torch.Tensor, None]:
+        return -ctx.lambd * grad, None
+
+
+class DomainDiscriminator(nn.Module):
+    """IDM features (B, features) -> one logit per pair (B,): source = 0, target = 1."""
+
+    def __init__(self, features: int, hidden: int):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(features, hidden), nn.ReLU(), nn.Linear(hidden, 1))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x).squeeze(1)
+
+
+def dann_lambda(p: float, lambda_max: float, gamma: float) -> float:
+    """Weight of the reversed gradient at training progress p in [0, 1]: 0 at the start,
+    close to lambda_max at the end."""
+    return lambda_max * (2 / (1 + math.exp(-gamma * p)) - 1)
+
+
+def repeat_forever(loader: DataLoader):
+    """Batches of a loader without end, reshuffled at every pass."""
+    while True:
+        for batch in loader:
+            yield batch
+
+
 def select_device() -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
@@ -192,6 +234,25 @@ def predict_transitions(
     return torch.cat(preds)
 
 
+@torch.no_grad()
+def domain_accuracy(
+    model: IDM,
+    discriminator: DomainDiscriminator,
+    transitions: Transitions,
+    domain: int,
+    device: torch.device,
+    batch_size: int = 256,
+) -> float:
+    """Share of the pairs that the discriminator assigns to their domain (0 source, 1 target)."""
+    model.eval()
+    loader = DataLoader(TransitionDataset(transitions), batch_size=batch_size)
+    correct = 0
+    for b in loader:
+        logits = discriminator(model.features(b["obs"].to(device), b["next_obs"].to(device)))
+        correct += ((logits > 0) == (domain == 1)).sum().item()
+    return correct / len(transitions.index)
+
+
 def errors(pred: torch.Tensor, target: torch.Tensor, std: torch.Tensor) -> dict:
     """Mean absolute error per component (radians; gripper in [0, 1]); `smae`, the MAE of
     standardized targets averaged over the components that move (the selection metric); and
@@ -204,11 +265,15 @@ def errors(pred: torch.Tensor, target: torch.Tensor, std: torch.Tensor) -> dict:
 
 def train_idm(cfg: dict, out_dir: Path, max_episodes: int | None = None) -> dict:
     """Train on the train split of cfg["collections"]; keep the epoch with the lowest
-    standardized MAE on their validation split (best.pt). Writes history.json in out_dir."""
+    standardized MAE on their validation split (best.pt). Writes history.json in out_dir.
+
+    With cfg["target"] (DANN): each source batch is paired with a target batch of the same
+    size, the action loss stays on source only, and best.pt is the last epoch."""
     out_dir.mkdir(parents=True, exist_ok=True)
     torch.manual_seed(cfg["seed"])
     device = select_device()
     size = cfg["image_size"]
+    dann = "target" in cfg
 
     def files(split: str) -> list[Path]:
         return [f for c in cfg["collections"] for f in split_files(Path(c), split)[:max_episodes]]
@@ -221,23 +286,67 @@ def train_idm(cfg: dict, out_dir: Path, max_episodes: int | None = None) -> dict
     loader = DataLoader(
         TransitionDataset(train), batch_size=cfg["batch_size"], shuffle=True, drop_last=True
     )
-    opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, cfg["epochs"] * len(loader))
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"]
+    )
+    total_steps = cfg["epochs"] * len(loader)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, total_steps)
+
+    if dann:
+        # Images only: the target's actions and states are never read (R1).
+        target = Path(cfg["target"])
+        target_train = load_transitions(
+            split_files(target, "train")[:max_episodes], size, labeled=False
+        )
+        target_val = load_transitions(
+            split_files(target, "val")[:max_episodes], size, labeled=False
+        )
+        target_loader = DataLoader(
+            TransitionDataset(target_train),
+            batch_size=cfg["batch_size"],
+            shuffle=True,
+            drop_last=True,
+        )
+        target_batches = repeat_forever(target_loader)
+        discriminator = DomainDiscriminator(
+            model.head[0].in_features, cfg["discriminator_hidden"]
+        ).to(device)
+        d_optimizer = torch.optim.Adam(discriminator.parameters(), lr=cfg["discriminator_lr"])
+        discriminator_loss = nn.BCEWithLogitsLoss()
     (out_dir / "config.json").write_text(json.dumps({**cfg, "device": str(device)}, indent=2))
 
-    history, best = [], float("inf")
+    history, best, step = [], float("inf"), 0
     for epoch in range(1, cfg["epochs"] + 1):
         model.train()
-        start, total = time.time(), 0.0
+        start, total, domain_total = time.time(), 0.0, 0.0
         for b in loader:
             obs, next_obs = b["obs"].to(device), b["next_obs"].to(device)
             y = (b["target"].to(device) - model.target_mean) / model.target_std
-            loss = F.mse_loss(model(obs, next_obs), y)
-            opt.zero_grad(set_to_none=True)
+            n = len(y)  # the first n pairs are source
+            if dann:
+                # One features() pass on both domains, so batch norm sees both.
+                t = next(target_batches)
+                obs = torch.cat([obs, t["obs"].to(device)])
+                next_obs = torch.cat([next_obs, t["next_obs"].to(device)])
+            features = model.features(obs, next_obs)
+            mse = F.mse_loss(model.head(features[:n]), y)  # action loss on source only
+            loss = mse
+            if dann:
+                lambd = dann_lambda(step / total_steps, cfg["dann_lambda"], cfg["dann_gamma"])
+                domain = torch.cat([torch.zeros(n), torch.ones(len(features) - n)]).to(device)
+                logits = discriminator(GradReverse.apply(features, lambd))
+                domain_loss = discriminator_loss(logits, domain)
+                loss = mse + domain_loss
+                domain_total += domain_loss.item()
+                d_optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)
             loss.backward()
-            opt.step()
+            optimizer.step()
+            if dann:
+                d_optimizer.step()
             sched.step()
-            total += loss.item()
+            step += 1
+            total += mse.item()
         v = errors(predict_transitions(model, val, device), val.targets, std)
         history.append(
             {
@@ -251,13 +360,26 @@ def train_idm(cfg: dict, out_dir: Path, max_episodes: int | None = None) -> dict
             f"epoch {epoch}: train {total / len(loader):.4f}, "
             f"val {v['mse']:.4f}, val sMAE {v['smae']:.4f}"
         )
-        if v["smae"] < best:
-            best = v["smae"]
-            torch.save(
-                {"model": model.state_dict(), "config": cfg, "epoch": epoch}, out_dir / "best.pt"
+        checkpoint = {"model": model.state_dict(), "config": cfg, "epoch": epoch}
+        if dann:
+            # TSR / TTR: share of source / target validation pairs classified correctly.
+            tsr = domain_accuracy(model, discriminator, val, 0, device)
+            ttr = domain_accuracy(model, discriminator, target_val, 1, device)
+            history[-1].update(
+                {"lambda": lambd, "domain_loss": domain_total / len(loader), "tsr": tsr, "ttr": ttr}
             )
+            print(
+                f"  lambda {lambd:.3f}, domain loss {domain_total / len(loader):.4f}, "
+                f"TSR {tsr:.3f}, TTR {ttr:.3f}"
+            )
+            checkpoint["discriminator"] = discriminator.state_dict()
+        if dann or v["smae"] < best:
+            best = v["smae"]
+            torch.save(checkpoint, out_dir / "best.pt")
         (out_dir / "history.json").write_text(json.dumps(history, indent=2))
-    torch.save({"model": model.state_dict(), "config": cfg, "epoch": epoch}, out_dir / "last.pt")
+    torch.save(checkpoint, out_dir / "last.pt")
+    if dann:
+        return history[-1]
     return min(history, key=lambda h: h["val"]["smae"])
 
 
