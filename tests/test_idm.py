@@ -3,6 +3,7 @@
 import json
 
 import numpy as np
+import pytest
 import torch
 from test_data_policy import _fake_image_collection
 
@@ -205,3 +206,27 @@ def test_dann_training_with_an_images_only_target(tmp_path):
         assert {"lambda", "domain_loss"} <= set(h)
     assert "discriminator" in torch.load(tmp_path / "run" / "best.pt")
     load_idm(tmp_path / "run" / "best.pt", torch.device("cpu"))
+
+
+def test_dann_stops_when_the_target_has_no_full_batch(tmp_path):
+    from action_free.idm import train_idm
+
+    source = _fake_image_collection(tmp_path / "source", num_episodes=10, steps=4, size=32)
+    target = _fake_image_collection(tmp_path / "A", num_episodes=10, steps=1, size=32)  # 8 pairs
+    cfg = {
+        "collections": [str(source)],
+        "target": str(target),
+        "image_size": 32,
+        "pretrained": False,
+        "epochs": 1,
+        "batch_size": 16,
+        "lr": 1e-3,
+        "weight_decay": 0.0,
+        "seed": 0,
+        "dann_lambda": 0.5,
+        "dann_gamma": 10,
+        "discriminator_hidden": 16,
+        "discriminator_lr": 1e-3,
+    }
+    with pytest.raises(ValueError, match="fewer train pairs"):
+        train_idm(cfg, tmp_path / "run")

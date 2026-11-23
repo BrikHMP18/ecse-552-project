@@ -81,7 +81,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D, E | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
 | (b) IDM | Done, 3 seeds on A, D, E (and E without the label filter) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
-| (c) DANN | Not started | |
+| (c) DANN | Code and protocol, no run | [dann.md](docs/experiments/dann.md), `configs/idm_dann_{A,D,E}.toml` |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 (`third_party/act`, unmodified), images only, 300 source demos.

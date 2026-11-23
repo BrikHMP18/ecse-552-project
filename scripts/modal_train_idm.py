@@ -93,8 +93,10 @@ def main(config: str = "configs/idm.toml", seeds: str = "0", smoke: bool = False
     for (_, run, _), call in zip(jobs, calls):
         print(f"spawned {run} ({call.object_id})")
     for (_, run, _), call in zip(jobs, calls):
-        best = call.get()
-        mae = ", ".join(f"{k} {v:.4f}" for k, v in best["val"]["mae"].items())
+        kept = call.get()
+        mae = ", ".join(f"{k} {v:.4f}" for k, v in kept["val"]["mae"].items())
+        which = "last" if "target" in cfg else "best"  # DANN keeps the last epoch
         print(
-            f"{run}: best epoch {best['epoch']}, validation sMAE {best['val']['smae']:.4f}; {mae}"
+            f"{run}: {which} epoch {kept['epoch']}, "
+            f"validation sMAE {kept['val']['smae']:.4f}; {mae}"
         )

@@ -307,6 +307,8 @@ def train_idm(cfg: dict, out_dir: Path, max_episodes: int | None = None) -> dict
             shuffle=True,
             drop_last=True,
         )
+        if len(target_loader) == 0:
+            raise ValueError(f"{target} has fewer train pairs than batch_size {cfg['batch_size']}")
         target_batches = repeat_forever(target_loader)
         discriminator = DomainDiscriminator(
             model.head[0].in_features, cfg["discriminator_hidden"]
