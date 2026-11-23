@@ -1,0 +1,24 @@
+# Method (c): act_idm_D.toml with the labels of the DANN-adapted IDM `idm_dann_D` (seed 0 only
+# so far; docs/experiments/dann.md); the videos' stored actions are never read (R1). Episodes whose
+# labels jump more than `max_label_step` in one step are dropped.
+
+data_dir = "data/source-deterministic-n300-seed0"
+num_episodes = 300
+exclude_detours = false
+
+num_epochs = 2000
+batch_size = 8
+lr = 1e-5
+kl_weight = 10
+chunk_size = 20
+hidden_dim = 512
+dim_feedforward = 3200
+
+execution = "ensemble:0.01"
+wandb_project = "ecse552"
+
+[[targets]]
+dir = "data/D-deterministic-n200-seed400000"
+num_episodes = 200
+actions = "labels/D-deterministic-idm_dann_D-seed{seed}"  # {seed} = training seed
+max_label_step = 2.0  # rad; source demos stay below 1.1 (docs/experiments/idm.md)

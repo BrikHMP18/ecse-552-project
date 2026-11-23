@@ -11,8 +11,10 @@
 *.nav
 *.snm
 
-# Course outline copy: instructor material, not for redistribution (repo is public)
+# Instructor material, not for redistribution (repo is public): course outline copy and
+# the instructor's sample talk (myCourses)
 docs/project-info.md
+docs/Emad_40to50mins.pdf
 
 # Generated datasets stay outside version control.
 /data/
