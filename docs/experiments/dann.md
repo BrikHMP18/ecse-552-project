@@ -59,6 +59,32 @@ error had been seen: sMAE 0.032–0.033 for DANN, 0.024 for the control, 0.023 f
 - The control is reported with D: DANN against control is the adversarial effect, control
   against `idm_turned` is batch norm seeing target images.
 
+## Results, seed 0 (23 November)
+
+Label error of `best.pt` (epoch 20) on all 200 target episodes, true actions read for
+evaluation only; source = the 50 held-out demos (`scripts/evaluate_idm.py`). Dropped = episodes
+whose labels move an arm joint more than 2 rad in one step (the label filter of (b)).
+
+| IDM | Target | Source sMAE | Target sMAE | Wrist3 (rad) | Gripper | Dropped |
+|---|---|---|---|---|---|---|
+| `idm_turned` (b) | A | 0.020 | 0.030 | 0.043 | 0.021 | 5 |
+| DANN | A | 0.030 | 0.114 | 0.521 | 0.026 | 29 |
+| `idm_turned` (b) | D | 0.020 | 0.065 | 0.031 | 0.113 | 3 |
+| Control (`dann_lambda = 0`) | D | 0.021 | 0.607 | 2.684 | 0.134 | 198 |
+| DANN | D | 0.028 | 0.220 | 0.690 | 0.125 | 145 |
+| `idm_turned` (b) | E | 0.020 | 0.065 | 0.278 | 0.016 | 21 |
+| DANN | E | 0.028 | 0.198 | 1.054 | 0.024 | 28 |
+
+- By the rule, DANN improves on no target: its target sMAE is 3 to 4 times that of (b).
+  No seeds 1 and 2, no policies (c).
+- The control is the worst, which points to the mixed batches (batch norm statistics of
+  source and target together) as what breaks the target labels; the adversarial term
+  recovers part of it (0.607 to 0.220), not up to (b).
+- The error is on the wrist, full turns as in [idm.md](idm.md); the other arm joints stay
+  within 0.06 rad.
+- The discriminator's loss stays at ln 2 in most epochs while TSR and TTR swing between 0
+  and 1 (A ends at 0.90 and 0.87): the adversarial game does not settle.
+
 ## Not in this task
 
 - The colour-jitter IDM (the comparison arm of the next step): owner to be agreed by the team.
