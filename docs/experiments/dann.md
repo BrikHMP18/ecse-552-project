@@ -41,7 +41,24 @@ policies train on all 200.
 Option, not adopted: adapt on all 200 unlabeled episodes. R1 allows it (images only) and it
 would cover every episode that gets labeled, but it leaves no held-out target episode for TTR.
 
+## Decision rule (23 November, before measuring target label error)
+
+Seed 0 of the four configs ran on Modal (Brik's approval). Only their source validation
+error had been seen: sMAE 0.032–0.033 for DANN, 0.024 for the control, 0.023 for
+`idm_turned`. It is reported, not used to decide (R5 concerns the policy).
+
+- Metric: sMAE of the pseudo-labels on all 200 target episodes against the true actions
+  (evaluation only, R1). Wrist3, gripper and the episodes the 2 rad label filter drops are
+  reported alongside.
+- DANN improves on a target if its sMAE is at least 5% below the lowest of the three
+  `idm_turned` seeds: A below 0.0278 (0.0293), D below 0.0332 (0.0349), E below 0.0618
+  (0.0650).
+- Where it improves: seeds 1 and 2, then policies (c) with the recipe of (b), label filter
+  included, once the team approves the runs. Where it does not: (c) is reported by its
+  label error only.
+- The control is reported with D: DANN against control is the adversarial effect, control
+  against `idm_turned` is batch norm seeing target images.
+
 ## Not in this task
 
 - The colour-jitter IDM (the comparison arm of the next step): owner to be agreed by the team.
-- Training: no Modal run until access and cost are agreed by the team.
