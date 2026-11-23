@@ -1,4 +1,6 @@
-"""IDM data: transitions within episodes, labels, splits, resizing, and action-free loading."""
+"""IDM data: transitions within episodes, labels, splits, resizing, action-free loading, DANN."""
+
+import json
 
 import numpy as np
 import torch
@@ -140,3 +142,66 @@ def test_selection_metric_ignores_the_joint_that_never_moves():
     e = errors(pred, target, std)
     assert abs(e["smae"] - 0.5 / 6) < 1e-6
     assert e["mae"]["shoulder"] == 1.0
+
+
+def test_gradient_reversal_is_identity_forward_and_negates_backward():
+    from action_free.idm import GradReverse
+
+    x = torch.randn(4, 5, requires_grad=True)
+    y = GradReverse.apply(x, 0.5)
+    torch.testing.assert_close(y, x)
+    (3 * y).sum().backward()
+    torch.testing.assert_close(x.grad, torch.full((4, 5), -0.5 * 3))
+
+
+def test_dann_lambda_grows_from_zero_to_lambda_max():
+    from action_free.idm import dann_lambda
+
+    assert dann_lambda(0.0, 0.5, 10) == 0.0
+    assert abs(dann_lambda(1.0, 0.5, 10) - 0.5) < 1e-3
+    assert dann_lambda(0.2, 0.5, 10) < dann_lambda(0.5, 0.5, 10)
+
+
+def test_discriminator_returns_one_logit_per_pair():
+    from action_free.idm import DomainDiscriminator
+
+    assert DomainDiscriminator(3 * 512, 16)(torch.randn(5, 3 * 512)).shape == (5,)
+
+
+def test_dann_training_with_an_images_only_target(tmp_path):
+    from action_free.idm import load_idm, train_idm
+
+    source = _fake_image_collection(tmp_path / "source", num_episodes=10, steps=4, size=32)
+    target = _fake_image_collection(tmp_path / "A", num_episodes=12, steps=4, size=32)  # new images
+    for f in target.glob("episode_*.npz"):  # keep only the images (R1)
+        obs = np.load(f)["observations"]
+        np.savez_compressed(f, observations=obs)
+    cfg = {
+        "collections": [str(source)],
+        "target": str(target),
+        "image_size": 32,
+        "pretrained": False,
+        "epochs": 2,
+        "batch_size": 8,
+        "lr": 1e-3,
+        "weight_decay": 0.0,
+        "seed": 0,
+        "dann_lambda": 0.5,
+        "dann_gamma": 10,
+        "discriminator_hidden": 16,
+        "discriminator_lr": 1e-3,
+    }
+    last = train_idm(cfg, tmp_path / "run")
+    assert {p.name for p in (tmp_path / "run").iterdir()} == {
+        "best.pt",
+        "last.pt",
+        "history.json",
+        "config.json",
+    }
+    history = json.loads((tmp_path / "run" / "history.json").read_text())
+    assert last["epoch"] == 2 and len(history) == 2
+    for h in history:
+        assert 0 <= h["tsr"] <= 1 and 0 <= h["ttr"] <= 1
+        assert {"lambda", "domain_loss"} <= set(h)
+    assert "discriminator" in torch.load(tmp_path / "run" / "best.pt")
+    load_idm(tmp_path / "run" / "best.pt", torch.device("cpu"))

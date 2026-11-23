@@ -1,0 +1,16 @@
+# As idm_turned.toml, plus DANN (method c) towards target A, read as images only (R1).
+collections = ["data/source-deterministic-n300-seed0", "data/source-turned-n100-seed600000"]
+target = "data/A-deterministic-n200-seed100000"
+
+image_size = 128
+pretrained = true
+epochs = 20
+batch_size = 64
+lr = 3e-4
+weight_decay = 1e-4
+seed = 0
+
+dann_lambda = 0.5  # lambda_max of the gradient reversal schedule
+dann_gamma = 10
+discriminator_hidden = 256
+discriminator_lr = 3e-4

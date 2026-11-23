@@ -1,7 +1,8 @@
 """Train the IDM on Modal: one A10G container per seed.
 
-The config's collections are downloaded once from the public Hugging Face dataset pinned in
-`configs/data.toml` ([hub]) into the volume `ecse552-idm-data`. Each run calls
+The config's collections (and its DANN target, if any) are downloaded once from the public
+Hugging Face dataset pinned in `configs/data.toml` ([hub]) into the volume
+`ecse552-idm-data`. Each run calls
 `idm.train_idm` and writes best.pt, last.pt, history.json and config.json to
 `ecse552-idm-outputs:/<config>/seed<seed>`. No secrets are needed.
 
@@ -78,7 +79,8 @@ def train(cfg: dict, run: str, max_episodes: int | None) -> dict:
 def main(config: str = "configs/idm.toml", seeds: str = "0", smoke: bool = False) -> None:
     cfg = tomllib.loads(Path(config).read_text())
     hub = tomllib.loads(Path("configs/data.toml").read_text())["hub"]
-    download.remote(cfg["collections"], hub["dataset"], hub["revision"])
+    collections = cfg["collections"] + ([cfg["target"]] if "target" in cfg else [])
+    download.remote(collections, hub["dataset"], hub["revision"])
 
     name = Path(config).stem + ("-smoke" if smoke else "")
     if smoke:
