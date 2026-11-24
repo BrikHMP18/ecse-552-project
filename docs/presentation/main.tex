@@ -3,6 +3,7 @@
 % Structure: docs/guidelines.md (storyline, the instructor's sample talk); B1--B8 and the
 % rubric: docs/course-requirements.md. Numbers come from docs/experiments/ and the report;
 % pending parts are red \todo and must stay visible until filled.
+% Each slide: the section in the grey band (\topicsection), its main idea as the frame title.
 \documentclass[aspectratio=169,11pt]{beamer}
 
 \usepackage[utf8]{inputenc}
@@ -10,17 +11,34 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning}
+\usetikzlibrary{arrows.meta,positioning,calc}
 
 \usetheme{default}
 \usefonttheme{professionalfonts}
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{footline}{\hfill\footnotesize\insertframenumber\,/\,\inserttotalframenumber\hspace{1em}\vspace{0.6em}}
-\setbeamerfont{frametitle}{series=\bfseries,size=\large}
+\setbeamersize{text margin left=0.7cm, text margin right=0.7cm}
 \setbeamertemplate{itemize items}[circle]
 \definecolor{accent}{RGB}{0,84,147}
-\setbeamercolor{frametitle}{fg=accent}
 \setbeamercolor{structure}{fg=accent}
+\setbeamercolor{frametitle}{fg=accent}
+\setbeamercolor{topic}{bg=gray!14, fg=gray!60!black}
+\setbeamerfont{topic}{series=\bfseries, size=\Large}
+\setbeamerfont{frametitle}{series=\bfseries, size=\large}
+
+% Section name in a grey band; the frame title below it is the slide's main idea.
+\def\topicname{}
+\newcommand{\topic}[1]{\gdef\topicname{#1}}
+\newcommand{\topicsection}[1]{\section{#1}\topic{#1}}
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \begin{beamercolorbox}[wd=\paperwidth, ht=0.62cm, dp=0.22cm, leftskip=0.7cm]{topic}
+    \usebeamerfont{topic}\topicname
+  \end{beamercolorbox}\par
+  \vskip0.18cm
+  \begin{beamercolorbox}[wd=\paperwidth, leftskip=0.7cm, rightskip=0.7cm plus 1fil]{frametitle}
+    \usebeamerfont{frametitle}\insertframetitle
+  \end{beamercolorbox}}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\src}[1]{\vfill{\scriptsize\color{gray}#1}}
@@ -30,13 +48,52 @@
 \newcommand{\step}[1]{\textcolor{red}{Step #1:}}
 \newcommand{\fix}{\textcolor{red}{$\rightarrow$}}
 
+% Diagrams: the colours of the result charts (IDM purple as (b), DANN magenta as (c), ACT
+% blue); data grey, solid with actions and dashed for videos without actions. One box size
+% per diagram, thin outlines and arrows of one style.
+\definecolor{cidm}{HTML}{7C4DBD}
+\definecolor{cdann}{HTML}{D55181}
+\definecolor{cact}{HTML}{2A78D6}
 \tikzset{
-  box/.style={draw, rounded corners, align=center, minimum height=0.9cm,
-    minimum width=1.9cm, font=\footnotesize},
-  data/.style={box, fill=gray!12},
-  model/.style={box, fill=accent!15},
-  adv/.style={box, fill=red!12},
-  arr/.style={-{Stealth}, thick}}
+  box/.style={draw, line width=0.7pt, rounded corners=3pt, align=center, text width=2.4cm,
+    minimum height=1cm, font=\scriptsize},
+  data/.style={box, draw=black!55, fill=black!5},
+  video/.style={data, dashed},
+  idm/.style={box, draw=cidm, fill=cidm!12},
+  dann/.style={box, draw=cdann, fill=cdann!12},
+  policy/.style={box, draw=cact, fill=cact!12},
+  arr/.style={-{Latex[length=1.8mm]}, line width=0.7pt, draw=black!75}}
+
+% The method, one slide per step: the steps so far (earlier ones grey) and the pipeline,
+% whose later boxes are kept in place but hidden until their step.
+\newcommand{\stepone}{train an IDM on the source demos; for (c), with DANN on target frames.}
+\newcommand{\steptwo}{label every target video; drop videos whose labels jump over 2~rad.}
+\newcommand{\stepthree}{train ACT on the source demos plus the labeled videos.}
+\newcommand{\steps}[1]{\begin{minipage}[t][1.15cm][t]{\linewidth}\vspace{0pt}\footnotesize\raggedright
+  \ifnum#1=1 \step{1} \stepone\par\else{\color{gray}Step 1: \stepone}\par\fi
+  \ifnum#1=2 \step{2} \steptwo\par\fi
+  \ifnum#1>2 {\color{gray}Step 2: \steptwo}\par\fi
+  \ifnum#1=3 \step{3} \stepthree\par\fi
+  \end{minipage}}
+\newcommand{\pipeline}[1]{%
+  \begin{tikzpicture}[node distance=0.7cm and 0.7cm, scale=0.82, transform shape]
+    \tikzset{s2/.style={}, s3/.style={}}
+    \ifnum#1<2 \tikzset{s2/.style={opacity=0, text opacity=0}}\fi
+    \ifnum#1<3 \tikzset{s3/.style={opacity=0, text opacity=0}}\fi
+    \node[data] (src) {Source demos\\images + actions};
+    \node[idm, right=of src] (idm) {\textbf{1.} IDM\\$\hat{a}_t = f_\theta(o_t, o_{t+1})$};
+    \node[data, s2, right=of idm] (pl) {\textbf{2.} Target videos\\with pseudo-labels};
+    \node[policy, s3, right=of pl] (act) {\textbf{3.} ACT policy\\images only};
+    \node[video, below=of src] (tgt) {Target videos\\images only};
+    \node[dann, below=of idm] (dann) {DANN (c)\\discriminator};
+    \draw[arr] (src) -- (idm);
+    \draw[arr] (tgt) -- (dann);
+    \draw[arr, <->] (dann) -- (idm);
+    \draw[arr, s2] (idm) -- (pl);
+    \draw[arr, s2] (tgt.south) -- ++(0,-0.35) -| (pl.south);
+    \draw[arr, s3] (pl) -- (act);
+    \draw[arr, s3] (src.north) -- ++(0,0.35) -| (act.north);
+  \end{tikzpicture}}
 
 \title{Learning to Manipulate a New Object\\from Action-Free Videos}
 \author{Group 9: Brik Meza, Gonzalo Mill\'an Garc\'ia, Myriam Dardour, Zheng Ye Zhang}
@@ -49,191 +106,229 @@
   \titlepage
 \end{frame}
 
-\begin{frame}{Outline}
+\topic{Outline}
+\begin{frame}{From the problem to what worked and what did not}
   \tableofcontents
 \end{frame}
 
-% ================================================================ Motivation, problem (B1--B3)
+% ================================================================ Motivation (B1--B3)
 % Presenter (proposed): Brik, slides 3--7.
-\section{Motivation and problem}
+\topicsection{Motivation}
 
-\begin{frame}{Every new task needs new demonstrations; videos are cheaper}
+\begin{frame}{Every new task needs new demonstrations, and they are expensive}
   \begin{columns}[c]
-    \begin{column}{0.52\textwidth}
-      \small
+    \begin{column}{0.48\textwidth}
       \begin{itemize}
-        \item Visuomotor policies (ACT, Diffusion Policy) imitate images paired with motor
-          commands.
-        \item Each new task or object needs new demonstrations: a person teleoperates the
-          robot, episode by episode (right).
-        \item Paired data are expensive: DROID needed 76k teleoperated demonstrations.
-        \item Videos without actions are cheap: recorded, or generated by world models.
+        \item Policies such as ACT imitate images paired with motor commands.
+        \item A new task or object means new teleoperated demos (right).
+        \item DROID: 76k demos, 50 people, one year.
       \end{itemize}
-      \vspace{0.3em}
-      \textbf{Question:} are action-free videos enough to extend an image-only policy
-      from one object to another? A controlled study, not a new method.
     \end{column}
-    \begin{column}{0.45\textwidth}
+    \begin{column}{0.5\textwidth}
       \includegraphics[width=\linewidth]{figures/aloha.png}\\[1pt]
-      {\scriptsize Collecting demonstrations by teleoperation with ALOHA. Photo: Zhao et al.
-      (2023).}
+      {\scriptsize Teleoperation with ALOHA. Photo: Zhao et al.\ (2023).}
     \end{column}
   \end{columns}
-  \src{Zhao et al.\ 2023 (ALOHA, ACT); Chi et al.\ 2023; Khazatsky et al.\ 2024 (DROID);
-    Jang et al.\ 2025}
+  \src{Zhao et al.\ 2023 (ALOHA, ACT); Chi et al.\ 2023; Khazatsky et al.\ 2024 (DROID)}
 \end{frame}
 
-\begin{frame}{Application: a UR5e arm moves an object into a goal square}
-  \begin{itemize}
-    \item OCBench (MuJoCo): UR5e arm, Robotiq gripper; three RGB cameras (front, side,
-      wrist), $224 \times 224$, 10~Hz.
-    \item Success: the whole object inside the 12~cm square, released and still, within
-      200 steps (20~s).
-    \item The policy sees only the images and outputs joint targets.
-  \end{itemize}
-  \vspace{0.3em}
-  \centering
-  \strip{a_source}
+\begin{frame}{Generative video models can produce demonstrations, but without actions}
+  \begin{columns}[c]
+    \begin{column}{0.48\textwidth}
+      \centering
+      \begin{tikzpicture}
+        \node[draw=gray, dashed, minimum width=\linewidth, minimum height=4.2cm,
+          text width=0.8\linewidth, align=center]
+          {\todo{frames of a robot video made by a video generation model, with its
+          citation}};
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \begin{itemize}
+        \item Video generation models are improving quickly and can produce robot videos.
+          \todo{examples and citations}
+        \item A generated video has images only, no motor commands to imitate.
+        \item DreamGen labels generated videos with an inverse dynamics model.
+      \end{itemize}
+      \vspace{0.4em}
+      \textbf{Question:} can a policy learn a new object from videos without actions?
+    \end{column}
+  \end{columns}
+  \src{Jang et al.\ 2025 (DreamGen)}
+\end{frame}
 
-  {\footnotesize Wrist camera, source-only policy on the source cube (90.7\% success).
-  \play{task}}
+\begin{frame}{Application: a UR5e arm places an object in a goal square}
+  \centering
+  \includegraphics[width=0.6\linewidth]{figures/cameras.png}\\[1pt]
+  {\scriptsize Front, side and wrist cameras, $224 \times 224$ at 10~Hz: the policy's only
+  input.}\\[6pt]
+  \includegraphics[width=0.6\linewidth]{figures/strip_a_source.png}\\[1pt]
+  {\scriptsize Success: the whole object inside the 12~cm square, released and still,
+  within 20~s. Source-only policy on the source cube (90.7\%). \play{task}}
   \src{OCBench: Park and Levine 2026}
 \end{frame}
 
-\begin{frame}{Problem and design constraints}
-  \begin{columns}[T]
+% Problem and constraints (B2, B3), still in the Motivation section.
+
+\begin{frame}{Labels exist for the source object; the target has only videos}
+  \begin{columns}[c]
     \begin{column}{0.4\textwidth}
-      \small
-      \begin{itemize}
-        \item Source: labeled transitions $\mathcal{D}_S = \{(o_t, a_t, o_{t+1})\}$,
-          $a_t \in \mathbb{R}^7$ (six joints, gripper).
-        \item Target $T$: videos only, $\mathcal{D}_T = \{o_t\}$.
-        \item Goal: an image-only policy $\pi_T(a_{t:t+H} \mid o_t)$ that succeeds on $T$
-          and still on the source.
-      \end{itemize}
+      \centering
+      \begin{tikzpicture}[node distance=1.1cm and 0.35cm, box/.append style={text width=2.2cm}]
+        \node[data] (s) {\textbf{Source}\\red cube\\300 demos\\images + actions};
+        \node[video, right=of s] (t) {\textbf{Target} $T$\\new object\\200 videos\\images only};
+        \node[policy, text width=5.15cm, below=1.1cm of $(s.south)!0.5!(t.south)$]
+          (p) {\textbf{Policy} $\pi_T$: images $\rightarrow$ actions\\succeeds on $T$ and on the
+          source};
+        \draw[arr] (s.south) -- (s.south |- p.north);
+        \draw[arr] (t.south) -- (t.south |- p.north);
+      \end{tikzpicture}
       \[
         G_T = \frac{s(\pi_T, T) - s(\pi_a, T)}{s(\pi_d, T) - s(\pi_a, T)}
       \]
-      {\scriptsize $s(\pi, X)$: closed-loop success on $X$; $\pi_a$: source only;
-      $\pi_d$: oracle with true target actions.}
+      {\scriptsize $s$: success; $\pi_a$: source only; $\pi_d$: oracle with true target
+      actions.}
     \end{column}
     \begin{column}{0.58\textwidth}
       \scriptsize
-      \begin{tabular}{@{}llp{2.9cm}p{1.6cm}@{}}
+      \begin{tabular}{@{}llp{3.3cm}l@{}}
         \toprule
         & Requirement & Definition & Target \\
         \midrule
-        R1 & Supervision & Target data are RGB frames only & Zero target labels \\
-        R2 & Label budget & Labeled source demos, same for every method & 300 \\
-        R3 & Inputs & No simulator state in any learned model & Images only \\
-        R4 & Target & Fraction of the oracle's gain, $G_T$ & $\geq 0.5$ \\
+        R1 & Supervision & Target data: frames only & No labels \\
+        R2 & Label budget & Same source demos for all & 300 \\
+        R3 & Inputs & No simulator state & Images only \\
+        R4 & Target & Share of the oracle's gain & $G_T \geq 0.5$ \\
         R5 & Retention & Drop in source success & $\leq 10$ points \\
-        R6 & Real time & Policy inference per 10~Hz step & $< 100$~ms \\
+        R6 & Real time & Inference per 10~Hz step & $< 100$~ms \\
         \bottomrule
       \end{tabular}
     \end{column}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Existing approaches and their shortcomings}
-  \footnotesize
-  \begin{tabular}{@{}p{3.1cm}p{4.7cm}p{5.4cm}@{}}
-    \toprule
-    Approach & What it does & Shortcoming for a new object \\
-    \midrule
-    Collect target demos & Teleoperate the robot on the new object & Needs target actions,
-      the cost we want to avoid (R1) \\
-    Train on the source only & Imitate the source demonstrations & The policy meets an object
-      it has never seen \\
-    Augment the source images & Random colour, contrast and shifts (RAD) & Covers appearance,
-      not a new motion \\
-    Label videos with an IDM & BCO, VPT, DreamGen: infer the actions, then imitate & The IDM
-      also meets a new object, outside its training data \\
-    Learn latent actions & LAPA: pretrain on actions inferred without labels & Larger models
-      and data than this project allows \\
-    Align the two domains & DANN: features that hide the domain & Built for classification;
-      may erase the cues an action needs \\
-    \bottomrule
-  \end{tabular}
-  \vspace{0.5em}
+% ================================================================ Related work
+\topicsection{Related work}
 
-  \textbf{\color{accent}Our idea:} label the target videos with an IDM trained on source
-  demos and adapted to the target with DANN; train the unchanged ACT on source demos plus
-  the labeled videos.
-  \src{Laskin et al.\ 2020; Torabi et al.\ 2018; Baker et al.\ 2022; Jang et al.\ 2025;
-    Ye et al.\ 2025; Ganin et al.\ 2016; Zhao et al.\ 2019}
+\begin{frame}{\todo{main idea of the slide}}
+  % To be researched by a team member: how policies learn from action-free videos.
+  \todo{Existing approaches to learning from action-free videos, each with its shortcoming
+  for a new object (as in the instructor's sample talk), with citations; then our idea in
+  one sentence.}
 \end{frame}
 
 % ================================================================ Data (B6)
-\section{Data}
+\topicsection{Data}
 
-\begin{frame}{Data: one source object and five targets, generated in simulation}
-  \begin{columns}[c]
-    \begin{column}{0.4\textwidth}
-      \includegraphics[width=\linewidth]{figures/objects.png}
+\begin{frame}{One source object and five targets, generated in simulation}
+  \centering
+  \begin{tikzpicture}
+    \node[inner sep=0] (img) {\includegraphics[width=0.85\linewidth]{figures/objects.png}};
+    % Panel centres measured in objects.png.
+    \foreach \x/\name in {0.098/Source, 0.265/A, 0.432/B, 0.600/C, 0.767/D, 0.935/E}
+      \node[font=\scriptsize, below=1pt] at ($(img.south west)!\x!(img.south east)$) {\name};
+  \end{tikzpicture}
+  \vspace{0.3em}
 
-      {\scriptsize\makebox[\linewidth]{\makebox[0.1667\linewidth]{Source}%
-      \makebox[0.1667\linewidth]{A}\makebox[0.1667\linewidth]{B}%
-      \makebox[0.1667\linewidth]{C}\makebox[0.1667\linewidth]{D}%
-      \makebox[0.1667\linewidth]{E}}}
-    \end{column}
-    \begin{column}{0.58\textwidth}
-      \scriptsize\setlength{\tabcolsep}{4pt}
-      \begin{tabular}{@{}lllr@{}}
-        \toprule
-        Object & Shape (cm), colour & Change & Episodes \\
-        \midrule
-        Source & $6 \times 6 \times 6$, red & (labeled demos) & 300 \\
-        A & $6 \times 6 \times 6$, blue & Appearance & 200 \\
-        B & $9 \times 6 \times 6$, red & Geometry & 200 \\
-        C & $9 \times 7 \times 6$, red & Geometry, grasp width & 200 \\
-        D & $9 \times 7 \times 6$, blue & All three & 200 \\
-        E & $6 \times 9 \times 6$, red & \textbf{Behaviour}: turned grasp & 200 \\
-        \bottomrule
-      \end{tabular}
-    \end{column}
-  \end{columns}
-  \vspace{0.5em}
-  \begin{columns}[T]
-    \scriptsize
-    \begin{column}{0.32\textwidth}
-      \textbf{Distribution}
-      \begin{itemize}
-        \item Object starts uniformly in a $20 \times 20$~cm area, yaw 0; one arm start pose.
-        \item Scripted expert, 94--100\% success; demos of about 70 steps (7~s).
-        \item Same initial states for every object.
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.33\textwidth}
-      \textbf{Who uses what}
-      \begin{itemize}
-        \item 300 source demos: every policy.
-        \item 100 source demos with a turned grasp: IDM only. 50 held out: IDM test.
-        \item 200 videos per target: images for (b) and (c); true actions only for the
-          oracle (d) and evaluation (R1).
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.31\textwidth}
-      \textbf{Splits}
-      \begin{itemize}
-        \item ACT: 80/20 by episode.
-        \item IDM: 8 of every 10 episodes; DANN: 160 of the 200 target videos.
-        \item Rollouts: validation seeds 900,000+, test 1,000,000+.
-      \end{itemize}
-    \end{column}
-  \end{columns}
+  \scriptsize
+  \begin{tabular}{@{}llllr@{}}
+    \toprule
+    Object & Shape (cm), colour & Change & Used by & Episodes \\
+    \midrule
+    Source & $6 \times 6 \times 6$, red & -- & Every policy, IDM & 300 \\
+    Source, turned & $6 \times 6 \times 6$, red & -- & IDM only & 100 \\
+    A & $6 \times 6 \times 6$, blue & Appearance & Videos (b, c); actions (d) & 200 \\
+    B & $9 \times 6 \times 6$, red & Geometry & As A & 200 \\
+    C & $9 \times 7 \times 6$, red & Geometry, grasp width & As A & 200 \\
+    D & $9 \times 7 \times 6$, blue & All three & As A & 200 \\
+    E & $6 \times 9 \times 6$, red & \textbf{Behaviour}: turned grasp & As A & 200 \\
+    \bottomrule
+  \end{tabular}\\[3pt]
+  Start uniform in a $20 \times 20$~cm area, yaw 0; same initial states for every object;
+  scripted expert, 94--100\% success.
 \end{frame}
 
 % ================================================================ Method (B4, B5)
 % Presenter (proposed): Zheng Ye, slides 8--10.
-\section{Method}
+\topicsection{Method}
 
-\begin{frame}{Policy: ACT stays fixed; the methods change its training data}
+\begin{frame}[t]{Step 1: an IDM learns the action between two frames from the source}
+  \steps{1}
   \centering
-  \includegraphics[width=0.76\linewidth]{figures/act.png}\\[1pt]
-  {\scriptsize Left: the action encoder gives the style variable $z$ (training only; $z = 0$
-  at test). Right: the policy. Ours: 3 cameras at $224 \times 224$, joints set to zero
-  (R3), chunks of 20 joint targets; original code and settings unchanged.\par}
+  \pipeline{1}\\[4pt]
+  \begin{minipage}{0.28\linewidth}
+    \includegraphics[width=\linewidth]{../report/figures/idm_val.png}
+  \end{minipage}\hspace{0.5em}%
+  \begin{minipage}{0.3\linewidth}
+    \scriptsize Validation error of the IDM on held-out source transitions, per epoch,
+    three seeds: 0.023 at the end.
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{The IDM reads the action from the motion between two frames}
+  \centering
+  \begin{tikzpicture}[node distance=0.6cm, box/.append style={text width=2.1cm, minimum height=1.25cm}]
+    \node[data] (in) {$o_t$, $o_{t+1}$, $o_{t+1} - o_t$\\three cameras};
+    \node[idm, right=of in] (enc) {ResNet-18\\shared by cameras};
+    \node[data, right=of enc] (h) {Features $h_\theta$\\$3 \times 512$};
+    \node[idm, right=of h] (mlp) {MLP\\one hidden layer};
+    \node[data, right=of mlp] (a) {$\hat{a}_t \in \mathbb{R}^7$\\joint targets};
+    \draw[arr] (in) -- (enc);
+    \draw[arr] (enc) -- (h);
+    \draw[arr] (h) -- (mlp);
+    \draw[arr] (mlp) -- (a);
+  \end{tikzpicture}\\[4pt]
+  \includegraphics[width=0.62\linewidth]{../report/figures/idm_input.png}\\
+  \raggedright\small
+  \begin{itemize}
+    \item The difference keeps the motion and drops static appearance such as colour.
+    \item Trained on 300 source demos + 100 with a turned grasp; one IDM for every target.
+  \end{itemize}
+  \src{Torabi et al.\ 2018; Baker et al.\ 2022; Morin et al.\ 2026}
+\end{frame}
+
+% Presenter (proposed): Myriam, DANN.
+\begin{frame}{For (c), DANN pushes the IDM to features that hide the domain}
+  \centering
+  \includegraphics[width=0.66\linewidth]{figures/dann_ganin.png}\\[2pt]
+  \raggedright\small
+  \begin{itemize}
+    \item Ours: $G_f$ is the IDM's ResNet-18; $G_y$ regresses the action (MSE, not a
+      class); $G_d$ is an MLP $1536 \rightarrow 256 \rightarrow 1$.
+    \item Each step: 64 source + 64 target pairs; $\lambda$ ramps to 0.5; fixed before any
+      run. Control: $\lambda = 0$.
+  \end{itemize}
+  \src{Figure: Ganin et al.\ 2016}
+\end{frame}
+
+\begin{frame}[t]{Step 2: the IDM labels every target video; impossible labels are dropped}
+  \steps{2}
+  \centering
+  \pipeline{2}\\[4pt]
+  \begin{minipage}{0.42\linewidth}
+    \includegraphics[width=\linewidth]{../report/figures/labels.png}
+  \end{minipage}\hspace{0.5em}%
+  \begin{minipage}{0.3\linewidth}
+    \scriptsize Wrist labels against the truth on one E video, and the largest step per
+    episode: the source demos never step over 1.1~rad.
+  \end{minipage}
+\end{frame}
+
+\begin{frame}[t]{Step 3: ACT trains on the source demos plus the labeled videos}
+  \steps{3}
+  \centering
+  \pipeline{3}
+  \vspace{0.6em}
+
+  \raggedright
+  \textbf{Hypothesis:} (c) gives better labels and higher success than (b).
+\end{frame}
+
+\begin{frame}{ACT stays fixed; the methods change its training data}
+  \centering
+  \includegraphics[width=0.74\linewidth]{figures/act.png}\\[1pt]
+  {\scriptsize Ours: 3 cameras at $224 \times 224$, joints set to zero (R3), chunks of 20
+  joint targets, $z = 0$ at test; original code and settings unchanged.\par}
   \vspace{0.4em}
 
   \scriptsize\setlength{\tabcolsep}{4pt}
@@ -252,118 +347,20 @@
   \src{Figure: Zhao et al.\ 2023}
 \end{frame}
 
-\begin{frame}{Solution: an inverse dynamics model labels the target videos}
+% ================================================================ Evaluation
+\topicsection{Evaluation}
+
+\begin{frame}{Every number comes from closed-loop rollouts on reserved seeds}
   \centering
-  \begin{tikzpicture}[node distance=0.7cm and 0.7cm,
-      box/.append style={minimum height=1.05cm, minimum width=2.5cm}]
-    \node[data] (src) {Source demos\\(images + actions)};
-    \node[data, below=of src] (tgt) {Target videos\\(images only)};
-    \node[model, right=of src] (idm) {1. IDM\\$\hat{a}_t = f_\theta(o_t, o_{t+1})$};
-    \node[model, below=of idm] (dann) {DANN (c)\\domain discriminator};
-    \node[data, right=of idm] (pl) {2. Pseudo-labeled\\target videos};
-    \node[model, right=of pl] (act) {3. ACT policy\\images only};
-    \draw[arr] (src) -- (idm);
-    \draw[arr] (tgt) -- (dann);
-    \draw[arr, <->] (dann) -- (idm);
-    \draw[arr] (idm) -- (pl);
-    \draw[arr] (tgt.south) -- ++(0,-0.4) -| (pl.south);
-    \draw[arr] (pl) -- (act);
-    \draw[arr] (src.north) -- ++(0,0.4) -| (act.north);
-  \end{tikzpicture}
-  \vspace{0.4em}
-
-  \raggedright\small
-  \step{1} train the IDM on labeled source transitions (300 + 100 turned demos); for (c),
-  also on target frames with DANN.\\[2pt]
-  \step{2} label every target video; drop videos whose labels move a joint more than 2~rad
-  in one step.\\[2pt]
-  \step{3} train ACT on the 300 source demos plus the labeled videos; one policy per
-  target.\\[4pt]
-  Hypothesis: (c) gives better labels and higher success than (b).
-\end{frame}
-
-\begin{frame}{Inverse dynamics model}
-  \centering
-  \begin{tikzpicture}[node distance=0.5cm and 0.5cm]
-    \node[data] (in) {$o_t,\; o_{t+1},\; o_{t+1} - o_t$\\three cameras each};
-    \node[model, right=of in] (enc) {CNN encoder\\shared across cameras};
-    \node[data, right=of enc] (h) {Features\\$h_\theta$};
-    \node[model, right=of h] (mlp) {MLP};
-    \node[data, right=of mlp] (a) {$\hat{a}_t \in \mathbb{R}^7$\\joint targets};
-    \draw[arr] (in) -- (enc);
-    \draw[arr] (enc) -- (h);
-    \draw[arr] (h) -- (mlp);
-    \draw[arr] (mlp) -- (a);
-  \end{tikzpicture}
-  \vspace{0.2em}
-  \begin{itemize}
-    \small
-    \item Predicts the action between two consecutive observations; MSE on source
-      transitions.
-    \item The frame difference exposes motion and suppresses static appearance.
-    \item Easier than the policy: it explains an action that already happened, not the
-      expert's intent.
-    \item ResNet-18 (ImageNet) per camera at 128~px, 9 input channels; AdamW, 20 epochs;
-      source validation sMAE 0.023.
-    \item One IDM for every target: 300 source demos plus 100 with a turned grasp (IDM only).
-    \item Label error (diagnostic): almost exact in the approach; errors where the grasp
-      differs, the gripper on D and the turned wrist on E.
-  \end{itemize}
-  \src{Torabi et al.\ 2018; Baker et al.\ 2022; Morin et al.\ 2026}
-\end{frame}
-
-% Presenter (proposed): Myriam, slides 11--12.
-\begin{frame}{Domain-adversarial adaptation (DANN)}
-  \centering
-  \begin{tikzpicture}[node distance=0.45cm and 0.3cm, box/.append style={minimum width=1.3cm, inner xsep=2pt}]
-    \node[data] (in) {Source and target\\frame pairs};
-    \node[model, right=of in] (enc) {CNN encoder};
-    \node[data, right=of enc] (h) {Features\\$h_\theta$};
-    \node[model, above right=0.1cm and 0.55cm of h] (mlp) {MLP};
-    \node[data, right=of mlp] (a) {$\mathcal{L}_{\text{act}}$: MSE,\\source only};
-    \node[adv, below right=0.1cm and 0.55cm of h] (grl) {Gradient\\reversal ($-\lambda$)};
-    \node[adv, right=of grl] (d) {Discriminator\\$d_\phi$};
-    \node[data, right=of d] (dom) {$\mathcal{L}_{\text{dom}}$: BCE,\\domain};
-    \draw[arr] (in) -- (enc);
-    \draw[arr] (enc) -- (h);
-    \draw[arr] (h.east) -- ++(0.3,0) |- (mlp.west);
-    \draw[arr] (h.east) -- ++(0.3,0) |- (grl.west);
-    \draw[arr] (mlp) -- (a);
-    \draw[arr] (grl) -- (d);
-    \draw[arr] (d) -- (dom);
-  \end{tikzpicture}
-  \[
-    \min_{\theta} \max_{\phi} \;\; \mathcal{L}_{\text{act}}(\theta) -
-    \lambda \, \mathcal{L}_{\text{dom}}(\theta, \phi)
-  \]
-  \vspace{-0.6em}
-  \begin{itemize}
-    \small
-    \item The encoder keeps features that predict source actions and hide the domain.
-    \item Each step: 64 source and 64 target pairs in one batch; target frames only (R1),
-      160 of the 200 videos.
-    \item Discriminator: MLP $1536 \rightarrow 256 \rightarrow 1$, Adam; $\lambda$ ramps from
-      0 to 0.5; last epoch kept. All fixed before any run.
-    \item Control: $\lambda = 0$, the same mixed batches without the reversed gradient.
-  \end{itemize}
-  \src{Ganin et al.\ 2016}
-\end{frame}
-
-% ================================================================ Evaluation (rigorous metrics)
-\section{Evaluation}
-
-\begin{frame}{Validation design: how each number is produced}
-  \centering
-  \begin{tikzpicture}[node distance=0.4cm and 0.45cm,
-      box/.append style={minimum width=1.9cm, font=\scriptsize}]
+  \begin{tikzpicture}[node distance=0.9cm and 0.5cm, box/.append style={text width=2.1cm, minimum height=1.25cm}]
     \node[data] (seeds) {3 training seeds\\per method};
-    \node[model, right=of seeds] (train) {Train ACT\\(one A10G GPU)};
-    \node[data, right=of train] (ckpt) {Checkpoints:\\best and last};
-    \node[model, right=of ckpt] (val) {100 source validation\\rollouts (900,000+)};
+    \node[policy, right=of seeds] (train) {Train ACT\\one A10G GPU};
+    \node[data, right=of train] (ckpt) {Checkpoints\\best and last};
+    \node[data, right=of ckpt] (val) {100 validation\\rollouts, source};
     \node[data, right=of val] (sel) {Selected\\checkpoint};
-    \node[model, below=0.7cm of sel] (test) {100 test rollouts per\\object, once (1,000,000+)};
-    \node[data, left=of test] (stats) {Mean $\pm$ std over seeds;\\Wilson 95\% interval};
-    \node[data, left=of stats] (req) {R4 and R5 with\\bootstrap intervals};
+    \node[data, below=of sel] (test) {100 test rollouts\\per object, once};
+    \node[data, below=of val] (stats) {Mean $\pm$ std;\\Wilson 95\%};
+    \node[data, below=of ckpt] (req) {R4, R5 with\\bootstrap intervals};
     \draw[arr] (seeds) -- (train);
     \draw[arr] (train) -- (ckpt);
     \draw[arr] (ckpt) -- (val);
@@ -372,24 +369,42 @@
     \draw[arr] (test) -- (stats);
     \draw[arr] (stats) -- (req);
   \end{tikzpicture}
-  \vspace{0.5em}
+  \vspace{0.6em}
+
+  \raggedright\small
   \begin{itemize}
-    \small
-    \item Same initial states for every method and object; no evaluation start is a training
-      start.
-    \item Selection uses source rollouts only. Target actions only train the oracle and
-      measure label error (R1).
-    \item Metrics: success on the target and on the source (R4, R5); latency per call (R6);
-      IDM error per action component and per phase of the episode.
-    \item Protocol fixed in the repository before the results.
+    \item Reserved seeds: validation rollouts from 900,000, test rollouts from 1,000,000;
+      the same initial states for every method.
+    \item Target actions only for the oracle and the label error (R1).
+    \item Splits: ACT 80/20 by episode; IDM 8 of every 10; DANN adapts on 160 of 200
+      target videos.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Validation loss does not tell which checkpoint succeeds}
+  \centering
+  \begin{columns}[c]
+    \begin{column}{0.49\textwidth}
+      \includegraphics[width=\linewidth]{../report/figures/act_val.png}\\
+      {\scriptsize ACT validation loss per epoch, seed 0 (50-epoch moving average).}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \includegraphics[width=\linewidth]{../report/figures/act_selection.png}\\
+      {\scriptsize Two checkpoints per run, 30 runs: lower loss, not higher success.}
+    \end{column}
+  \end{columns}
+  \vspace{0.6em}
+
+  \raggedright\small
+  The checkpoint is chosen by 100 source validation rollouts: \emph{last} 17 times,
+  \emph{lowest loss} 13 times, up to 79 points apart.
 \end{frame}
 
 % ================================================================ Results (B7)
 % Presenter (proposed): Gonzalo, slides 13--14.
-\section{Results}
+\topicsection{Results}
 
-\begin{frame}{Result 1: appearance needs no target videos; behaviour does}
+\begin{frame}{Appearance needs no target videos; behaviour does}
   \begin{columns}[c]
     \begin{column}{0.5\textwidth}
       \footnotesize
@@ -412,49 +427,27 @@
         (a) + 100 turned demos & -- & 2.3\% \\
         (d) Oracle & 85.7\% & \textbf{89.0\%} \\
         \bottomrule
-      \end{tabular}
+      \end{tabular}\\[6pt]
       \raggedright
-      \begin{itemize}
-        \footnotesize
-        \item Augmentation is above the oracle on A.
-        \item E's 9~cm side does not fit the 8.5~cm gripper: the grasp must turn by
-          $90^\circ$. \emph{When} to turn is only in E's videos.
-      \end{itemize}
+      E's 9~cm side does not fit the 8.5~cm gripper: the grasp must turn by $90^\circ$,
+      and \emph{when} to turn is only in E's videos.
     \end{column}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Result 2: target videos pay off where augmentation cannot}
+\begin{frame}{Target videos pay off where augmentation cannot}
   \centering
-  {\footnotesize
-  \begin{tabular}{@{}llcccccc@{}}
-    \toprule
-    & Method & A & B & C & D & E & Source \\
-    \midrule
-    (a) & Source only & 0.3\% & 82.3\% & 59.0\% & 0.0\% & 0.0\% & 90.7\% \\
-    (e) & Augmentation & \textbf{98.7\%} & \textbf{90.7\%} & \textbf{68.0\%} & 66.7\% & 0.3\% & 95.0\% \\
-    (b) & Unadapted IDM & 83.0\% & -- & -- & 83.7\% & \textbf{95.0\%} & 71.0--93.3\% \\
-    (c) & DANN-adapted IDM & \todo{} & -- & -- & \todo{} & \todo{} & \todo{} \\
-    (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & 89.0\% & 87.0--96.3\% \\
-    \bottomrule
-  \end{tabular}\par}
-  \vspace{0.5em}
-  \raggedright
+  \includegraphics[width=0.86\linewidth]{../report/figures/results.png}
+  \raggedright\small
   \begin{itemize}
-    \small
-    \item R4 for (b), 95\% interval over seeds and rollouts: A 0.97 [0.73, 1.25], D 0.90
-      [0.79, 1.04], E 1.07 [0.98, 1.17]. Requirement: 0.5.
-    \item D: 17 points above augmentation. E: level with the oracle. A: augmentation is
-      better.
-    \item R5: (b) keeps the source on A and D; on E it drops 19.7 points [$-3.7$, 46.3],
-      from one seed of three.
-    \item B and C leave no usable gap, so (b) and (c) are not run on them.
-    \item \todo{(c) policies, seed 0: success on A, D, E and source; (c) against (b) and (e).}
+    \item (b) meets R4 on A, D, E: $G_T$ = 0.97 [0.73, 1.25], 0.90 [0.79, 1.04], 1.07
+      [0.98, 1.17].
+    \item \todo{(c) policies, seed 0: success on A, D, E and source.}
   \end{itemize}
 \end{frame}
 
 % Presenter (proposed): Brik, slide 15.
-\begin{frame}{Result 3: the videos of E teach the policy when to turn}
+\begin{frame}{The videos of E teach the policy when to turn}
   \begin{columns}[c]
     \begin{column}{0.5\textwidth}
       \footnotesize
@@ -465,124 +458,98 @@
       \hfill\play{idm}
     \end{column}
     \begin{column}{0.47\textwidth}
-      \includegraphics[width=\linewidth]{../report/figures/labels.png}\\
-      \scriptsize IDM wrist labels against the truth on one E video, and the largest
-      step per episode.
+      \includegraphics[width=\linewidth]{../report/figures/wrist.png}\\
+      \scriptsize E needs wrist angles that are rare in the source demos; the 100 turned
+      source demos give the IDM those motions.
     \end{column}
   \end{columns}
   \vspace{0.3em}
   \begin{itemize}
-    \item The IDM confuses wrist angles one full turn apart; a filter on the labels drops
-      those videos (about 10\% of E). Success is the same without it (95.3\%).
-    \item The IDM labels only motions it has seen in labeled source data.
+    \small
+    \item Full-turn wrist errors: the filter drops them (about 10\% of E); same success
+      without it.
   \end{itemize}
 \end{frame}
 
 % Presenter (proposed): Myriam, slide 16.
-\begin{frame}{Result 4: adapting the IDM with DANN makes the labels worse}
-  \begin{columns}[T]
-    \begin{column}{0.52\textwidth}
-      \scriptsize
-      \begin{tabular}{@{}llrrr@{}}
-        \toprule
-        IDM (seed 0) & Target & Error & Wrist (rad) & Dropped \\
-        \midrule
-        (b) & A & \textbf{0.030} & 0.04 & 5 \\
-        DANN & A & 0.114 & 0.52 & 29 \\
-        (b) & D & \textbf{0.065} & 0.03 & 3 \\
-        Control, $\lambda = 0$ & D & 0.607 & 2.68 & 198 \\
-        DANN & D & 0.220 & 0.69 & 145 \\
-        (b) & E & \textbf{0.065} & 0.28 & 21 \\
-        DANN & E & 0.198 & 1.05 & 28 \\
-        \bottomrule
-      \end{tabular}\\[3pt]
-      Label error: standardized MAE on the 200 videos, against the true actions
-      (evaluation only). Dropped: by the 2~rad filter, of 200.
-    \end{column}
-    \begin{column}{0.45\textwidth}
-      \begin{itemize}
-        \footnotesize
-        \item Rule fixed before measuring: DANN had to be 5\% below every seed of (b). It is
-          3 to 4 times worse.
-        \item The errors are full wrist turns, in every phase of the episode.
-        \item The control is the worst: target images in the same batches (batch norm)
-          break the labels; the reversed gradient recovers part.
-        \item The IDM already ignores colour (frame differences): little to align, much to
-          lose, as warned for invariant features.
-        \item \todo{Policies (c), seed 0: success on A, D, E and source.}
-      \end{itemize}
-    \end{column}
-  \end{columns}
-  \src{Zhao et al.\ 2019; Nejjar et al.\ 2023}
+\begin{frame}{Adapting the IDM with DANN makes the labels worse}
+  \centering
+  \includegraphics[width=0.84\linewidth]{../report/figures/dann.png}
+  \raggedright\small
+  \begin{itemize}
+    \item Seed 0; rule fixed before measuring. Errors are full wrist turns, in every phase.
+    \item The control is worst: mixing target images into the batches breaks the labels.
+    \item \todo{Policies (c), seed 0: success on A, D, E and source.}
+  \end{itemize}
+  \src{Label error against the true actions, for evaluation only (R1).}
 \end{frame}
 
-% ================================================================ Critique, conclusions (B8)
+% ================================================================ Critique (B8)
 % Presenter (proposed): Brik, slides 17--18.
-\section{Critique and conclusions}
+\topicsection{Critique}
 
-\begin{frame}{Were the constraints met? What went wrong?}
+\begin{frame}{The constraints hold for (b); most problems led to a fix}
   \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
+    \begin{column}{0.47\textwidth}
       \footnotesize
-      \begin{tabular}{@{}lp{4.9cm}@{}}
+      \begin{tabular}{@{}lp{4.8cm}@{}}
         \toprule
-        R1, R3 & Met by design: IDM and policy \\
+        R1, R3 & Met by design \\
         R2 & 300 demos (100 reach 37\%) \\
-        R4 & (e): A, B, D. (b): A, D, E, whole interval above 0.5. (c): \todo{} \\
-        R5 & (e) and (b) on A, D: met. (b) on E: $-19.7$ [$-3.7$, 46.3]. (c): \todo{} \\
+        R4 & (e): A, B, D. (b): A, D, E. (c): \todo{} \\
+        R5 & (e) and (b) on A, D. Not (b) on E: one seed. (c): \todo{} \\
         R6 & Met: 10--18~ms per call \\
         \bottomrule
       \end{tabular}
     \end{column}
-    \begin{column}{0.5\textwidth}
+    \begin{column}{0.51\textwidth}
       \footnotesize
       \begin{itemize}
-        \item Our own ACT reached 23--49\% \fix{} the original ACT, unchanged.
-        \item The first targets were solved by augmentation \fix{} target E, a new motion.
-        \item The IDM could not label E \fix{} 100 source demos with a turned grasp (IDM only).
-        \item Full-turn wrist errors \fix{} a 2~rad filter on the labels.
-        \item DANN made the labels worse \fix{} reported as negative transfer.
-          \todo{(c) policies.}
-        \item Tens of points across seeds \fix{} 3 seeds, selection by rollouts, intervals.
+        \item Own ACT at 23--49\% \fix{} the original ACT.
+        \item First targets solved by jitter \fix{} target E.
+        \item IDM could not label E \fix{} 100 turned source demos.
+        \item Full-turn wrist errors \fix{} a 2~rad label filter.
+        \item DANN made labels worse \fix{} reported as negative transfer.
+        \item High seed variance \fix{} 3 seeds, rollout selection, intervals.
       \end{itemize}
     \end{column}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Conclusions and next steps}
+% ================================================================ Conclusions (B8)
+\topicsection{Conclusions}
+
+\begin{frame}{Videos help when the behaviour changes; adapting the IDM did not}
   \begin{columns}[T]
     \begin{column}{0.5\textwidth}
       \textbf{Conclusions}
       \begin{enumerate}
         \footnotesize
-        \item Augmentation covers appearance; target videos are needed when the behaviour
-          changes.
-        \item Videos labeled by an unadapted IDM recover 0.90 (D) and 1.07 (E) of the
-          oracle's gain without any target action.
-        \item The IDM must have seen the motion in labeled source data.
-        \item Adapting the IDM with DANN made its labels worse. \todo{And the policy?}
-        \item No target labels or state; ACT unchanged, 15~ms per call.
+        \item Augmentation covers appearance; videos are needed for a new behaviour.
+        \item IDM-labeled videos recover 0.90 (D) and 1.07 (E) of the oracle's gain.
+        \item The IDM must have seen the motion in source data.
+        \item DANN made the labels worse. \todo{And the policy?}
+        \item No target labels; ACT unchanged, 15~ms per call.
       \end{enumerate}
     \end{column}
     \begin{column}{0.48\textwidth}
       \textbf{Limitations}
       \begin{itemize}
         \footnotesize
-        \item Simulation only, one task \fix{} real or human videos.
-        \item Fixed yaw and start pose \fix{} stock OCBench variability.
-        \item Three seeds, wide intervals \fix{} more seeds.
-        \item The IDM labels only source motions \fix{} iterative BCO on the policy's own
-          rollouts. \todo{Run or keep as future work.}
-        \item DANN aligns whole distributions \fix{} alignment that keeps the action, or
-          methods built for regression.
+        \item Simulation, one task \fix{} real or human videos.
+        \item Fixed yaw and start \fix{} stock OCBench.
+        \item Three seeds \fix{} more seeds.
+        \item IDM sees source motions only \fix{} iterative BCO. \todo{run or future work}
+        \item DANN aligns whole distributions \fix{} regression-aware alignment.
       \end{itemize}
     \end{column}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Questions?}
+\topic{Questions}
+\begin{frame}{Thank you}
   \centering
-  \vspace{1.5em}
+  \vspace{1.2em}
   {\Huge Questions?}
   \vspace{2em}
 
@@ -591,14 +558,14 @@
     Code & \url{https://github.com/BrikHMP18/ecse-552-project} \\
     Data & \url{https://huggingface.co/datasets/Autobrik/ecse552-ocbench-block} \\
     Models & \url{https://huggingface.co/Autobrik} (\texttt{ecse552-act-*}) \\
-    Report & \texttt{docs/report/main.pdf} in the code repository \\
   \end{tabular}
 \end{frame}
 
 % ---------------------------------------------------------------- Backup (Q/A)
 \appendix
+\topic{Backup}
 
-\begin{frame}{Backup: R4 and R5 with 95\% intervals}
+\begin{frame}{R4 and R5 with 95\% intervals}
   \centering
   \small
   \begin{tabular}{@{}llrlrl@{}}
@@ -615,12 +582,11 @@
   \end{tabular}
 
   \vspace{0.5em}
-  Bootstrap: training seeds with replacement, then the 100 rollouts of each seed. R4 needs
-  $G_T \geq 0.5$, R5 a drop of at most 10 points. On B the oracle's gain is within the seed
-  spread; on C the oracle is below the baseline (R4 inconclusive).
+  Bootstrap: training seeds with replacement, then the 100 rollouts of each seed. On B the
+  oracle's gain is within the seed spread; on C the oracle is below the baseline.
 \end{frame}
 
-\begin{frame}{Backup: where the labels fail, per phase of the episode}
+\begin{frame}{Where the labels fail, per phase of the episode}
   \centering
   \scriptsize
   \begin{tabular}{@{}llrrrrr@{}}
@@ -642,23 +608,15 @@
   (evaluation only).
 \end{frame}
 
-\begin{frame}{Backup: checkpoint selection needs rollouts}
+\begin{frame}{DANN training: the discriminator sits at chance}
   \centering
-  \includegraphics[width=0.9\linewidth]{../report/figures/selection.png}
+  \includegraphics[width=0.9\linewidth]{../report/figures/dann_curves.png}
 
-  \small In 30 runs the selected checkpoint was \emph{best} 13 times and \emph{last} 17
-  times, with differences of up to 79 points.
+  \small Seed 0. DANN raises the source validation error (0.032 against 0.023); without the
+  reversed gradient the discriminator separates the domains completely (loss near 0).
 \end{frame}
 
-\begin{frame}{Backup: wrist angles in E against the source demos}
-  \centering
-  \includegraphics[width=0.9\linewidth]{../report/figures/wrist.png}
-
-  \small In E's videos the last wrist joint is below $-1.2$~rad in 75.5\% of the frames;
-  in the 300 source demos, 2.5\%.
-\end{frame}
-
-\begin{frame}{Backup: unadapted IDM (b), every seed}
+\begin{frame}{Unadapted IDM (b), every seed}
   \centering
   \small
   \begin{tabular}{@{}llrrrr@{}}

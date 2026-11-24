@@ -2,8 +2,9 @@
 
     uv run --with matplotlib python scripts/make_report_figures.py
 
-Writes docs/report/figures/{results,selection,curves,wrist,labels}.png. Runs that are not
-downloaded and tested yet are left out, so the figures fill in as results arrive.
+Writes docs/report/figures/{results,selection,curves,wrist,labels,idm_input,dann,idm_val,
+act_val,act_selection,dann_curves}.png. Runs that are not downloaded and tested yet are left
+out, so the figures fill in as results arrive.
 """
 
 import json
@@ -14,12 +15,14 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Patch
 
 OUT = Path("docs/report/figures")
-BLUE, ORANGE, PURPLE, AQUA, INK, MUTED, GRID = (
+BLUE, ORANGE, PURPLE, MAGENTA, AQUA, INK, MUTED, GRID = (
     "#2a78d6",
     "#eb6834",
     "#7c4dbd",
+    "#e87ba4",
     "#1baf7a",
     "#1f1f1e",
     "#6b6a64",
@@ -217,10 +220,179 @@ def labels() -> None:
     fig.savefig(OUT / "labels.png")
 
 
+def idm_input() -> None:
+    """What the IDM sees: two consecutive frames of a source demo and their difference."""
+    ep = np.load(Path("data", SOURCE, "episode_00000.npz"))
+    t, camera = 20, 1  # approach, side camera
+    a, b = ep["observations"][t, camera], ep["observations"][t + 1, camera]
+    diff = np.abs(b.astype(int) - a.astype(int)).mean(2)
+    fig, axes = plt.subplots(1, 3, figsize=(6.6, 2.3))
+    for ax, image, title in zip(axes, (a, b, diff), ("$o_t$", "$o_{t+1}$", "$|o_{t+1} - o_t|$")):
+        ax.imshow(image, cmap="Greys", vmin=0, vmax=30) if image.ndim == 2 else ax.imshow(image)
+        ax.set_title(title, fontsize=9)
+        ax.axis("off")
+    fig.savefig(OUT / "idm_input.png")
+
+
+def dann() -> None:
+    """Label error on each target of the unadapted IDM (b), DANN (c) and its control, seed 0,
+    and the videos the 2 rad label filter drops (true actions for evaluation only, R1)."""
+    from action_free.act_original import plausible
+    from action_free.idm import split_files
+
+    folders = {"A": "A-deterministic-n200-seed100000", "D": "D-deterministic-n200-seed400000",
+               "E": "E-deterministic-n200-seed500000"}  # fmt: skip
+    idms = (("(b) Unadapted IDM", PURPLE, "idm_turned"),
+            ("Control, $\\lambda = 0$", MUTED, "idm_dann_{}_lambda0"),
+            ("(c) DANN", MAGENTA, "idm_dann_{}"))  # fmt: skip
+    fig, axes = plt.subplots(1, 2, figsize=(6.6, 2.2))
+    width = 0.27
+    for i, t in enumerate(IDM_TARGETS):
+        files = split_files(Path("data", folders[t]))
+        for m, (label, colour, idm) in enumerate(idms):
+            run = Path("outputs", idm.format(t), "seed0", "label_error.json")
+            if not run.exists():
+                continue
+            error = json.loads(run.read_text())[folders[t]]["smae"]
+            labels_dir = Path("data/labels", f"{t}-deterministic-{idm.format(t)}-seed0")
+            dropped = len(files) - len(plausible(files, labels_dir, 2.0))
+            x = i + (m - 1) * width
+            for ax, v, text in ((axes[0], error, f"{error:.2f}"), (axes[1], dropped, dropped)):
+                ax.bar(x, v, width - 0.04, color=colour)
+                ax.text(x, v, text, ha="center", va="bottom", fontsize=6)
+    for ax, ylabel in zip(axes, ("Label error (sMAE)", "Videos dropped (of 200)")):
+        ax.set_xticks(range(len(IDM_TARGETS)), IDM_TARGETS)
+        ax.set_ylabel(ylabel)
+        ax.grid(axis="y", color=GRID, lw=0.6)
+        ax.set_axisbelow(True)
+    handles = [Patch(color=colour, label=label) for label, colour, _ in idms]
+    fig.legend(handles=handles, frameon=False, ncols=3, loc="upper center",
+               bbox_to_anchor=(0.5, 1.08))  # fmt: skip
+    fig.tight_layout()
+    fig.savefig(OUT / "dann.png")
+
+
+def idm_history(run: str) -> list[dict]:
+    f = Path("outputs", run, "history.json")
+    return json.loads(f.read_text()) if f.exists() else []
+
+
+def idm_val() -> None:
+    """Source validation error of the unadapted IDM per epoch, its three seeds."""
+    fig, ax = plt.subplots(figsize=(4.2, 2.0))
+    for seed in range(3):
+        h = idm_history(f"idm_turned/seed{seed}")
+        ax.plot([r["epoch"] for r in h], [r["val"]["smae"] for r in h], color=PURPLE, lw=1)
+    ax.set_xticks([1, 5, 10, 15, 20])
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Validation sMAE\n(source)")
+    ax.set_ylim(0, None)
+    ax.grid(color=GRID, lw=0.5)
+    fig.savefig(OUT / "idm_val.png")
+
+
+def act_val() -> None:
+    """ACT validation L1 loss per epoch, seed 0 of each method (on E for the target methods):
+    each epoch faint, the 50-epoch moving average solid."""
+    runs = (("(a) Source only", BLUE, "act_deterministic"),
+            ("(e) Augmentation", ORANGE, "act_augment"),
+            ("(b) IDM, E", PURPLE, "act_idm_E"),
+            ("(d) Oracle, E", AQUA, "act_oracle_E"))  # fmt: skip
+    fig, ax = plt.subplots(figsize=(4.2, 2.0))
+    for label, colour, run in runs:
+        h = json.loads(Path("outputs", run, "n300/seed0/history.json").read_text())
+        epoch, val = np.array([r["epoch"] for r in h]), np.array([r["val/l1"] for r in h])
+        mean = np.convolve(val, np.ones(50) / 50, mode="valid")  # 50-epoch moving average
+        ax.plot(epoch, val, color=colour, lw=0.4, alpha=0.15)
+        ax.plot(epoch[49:], mean, color=colour, lw=1.2, label=label)
+    ax.set_yscale("log")
+    ax.set_yticks([0.05, 0.1, 0.2], ["0.05", "0.1", "0.2"])
+    ax.minorticks_off()
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Validation L1 loss")
+    ax.grid(color=GRID, lw=0.5)
+    ax.legend(frameon=False, fontsize=6.5)
+    fig.savefig(OUT / "act_val.png")
+
+
+def act_selection() -> None:
+    """Validation L1 loss against source validation success of the two checkpoints of every
+    run: the lowest validation loss (best) and the last epoch."""
+    families = [("(a)", BLUE, ["act_deterministic"]), ("(e)", ORANGE, ["act_augment"]),
+                ("(b)", PURPLE, [f"act_idm_{t}" for t in IDM_TARGETS]),
+                ("(d)", AQUA, [f"act_oracle_{t}" for t in ORACLES])]  # fmt: skip
+    fig, ax = plt.subplots(figsize=(4.2, 2.4))
+    for name, colour, runs in families:
+        for d in (d for run in runs for d in seeds(run)):
+            h, sel = d / "history.json", d / "selection.json"
+            if not (h.exists() and sel.exists()):
+                continue
+            val = [r["val/l1"] for r in json.loads(h.read_text())]
+            s = json.loads(sel.read_text())
+            x = [val[s["epochs"]["best"]], val[s["epochs"]["last"]]]
+            y = [100 * s["validation_success"]["best"], 100 * s["validation_success"]["last"]]
+            ax.plot(x, y, color=GRID, lw=1, zorder=1)
+            ax.scatter(x[0], y[0], s=14, color=colour, zorder=2)
+            ax.scatter(x[1], y[1], s=14, color=colour, marker="s", zorder=2)
+        ax.scatter([], [], s=14, color=colour, label=name)
+    ax.scatter([], [], s=14, color=MUTED, label="lowest validation loss")
+    ax.scatter([], [], s=14, color=MUTED, marker="s", label="last epoch")
+    ax.set_xlabel("Validation L1 loss of the checkpoint")
+    ax.set_ylabel("Source validation\nsuccess (%)")
+    ax.set_ylim(0, 105)
+    ax.grid(color=GRID, lw=0.5)
+    ax.legend(frameon=False, fontsize=6, ncols=2, loc="lower left")
+    fig.savefig(OUT / "act_selection.png")
+
+
+def dann_curves() -> None:
+    """DANN training, seed 0: source validation error per epoch against the unadapted IDM, and
+    the discriminator's loss against the control without reversed gradient (ln 2: chance)."""
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(6.6, 2.2))
+    for seed in range(3):
+        h = idm_history(f"idm_turned/seed{seed}")
+        ax.plot([r["epoch"] for r in h], [r["val"]["smae"] for r in h], color=PURPLE, lw=1,
+                label="(b) Unadapted IDM" if seed == 0 else None)  # fmt: skip
+    for i, t in enumerate(IDM_TARGETS):
+        h = idm_history(f"idm_dann_{t}/seed0")
+        epochs = [r["epoch"] for r in h]
+        ax.plot(epochs, [r["val"]["smae"] for r in h], color=MAGENTA, lw=1,
+                label="(c) DANN, A, D, E" if i == 0 else None)  # fmt: skip
+        bx.plot(epochs, [r["domain_loss"] for r in h], color=MAGENTA, lw=1,
+                label="(c) DANN, A, D, E" if i == 0 else None)  # fmt: skip
+    h = idm_history("idm_dann_D_lambda0/seed0")
+    for axis, key in ((ax, lambda r: r["val"]["smae"]), (bx, lambda r: r["domain_loss"])):
+        axis.plot([r["epoch"] for r in h], [key(r) for r in h], color=MUTED, lw=1,
+                  label="Control, $\\lambda = 0$, D")  # fmt: skip
+    bx.axhline(np.log(2), color=MUTED, lw=0.6, ls="--")
+    bx.text(20, np.log(2), "chance (ln 2)", ha="right", va="bottom", fontsize=6, color=MUTED)
+    ax.set_ylabel("Validation sMAE (source)")
+    bx.set_ylabel("Discriminator loss")
+    for axis in (ax, bx):
+        axis.set_xlabel("Epoch")
+        axis.set_ylim(0, None)
+        axis.grid(color=GRID, lw=0.5)
+        axis.legend(frameon=False, fontsize=6)
+    fig.tight_layout()
+    fig.savefig(OUT / "dann_curves.png")
+
+
 SOURCE = "source-deterministic-n300-seed0"
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
-    for draw in (results, selection, curves, wrist, labels):
+    for draw in (
+        results,
+        selection,
+        curves,
+        wrist,
+        labels,
+        idm_input,
+        dann,
+        idm_val,
+        act_val,
+        act_selection,
+        dann_curves,
+    ):
         draw()
         plt.close("all")

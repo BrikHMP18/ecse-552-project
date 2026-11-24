@@ -118,7 +118,7 @@ grasp; ACT never sees those 100.
 
 - Report: `tab:methods` lacks "what is trained" and "what changes"; ACT has no figure;
   `tab:objects` lacks "used by" and the splits per method; DANN details are a `\todo`.
-- Slides: restructured on 23 November to this storyline (outline, existing approaches,
-  ACT figure with the methods table, data with use and splits, validation design, critique
-  with fixes, questions with links; 16 content slides, one above the target: trim one). Open: `TODO`s for the (c) policies
-  and iterative BCO; presenters to confirm.
+- Slides: restructured on 23 November to this storyline and to the sample talk's style
+  (section band, idea as title, method step by step); 20 content slides, five above the
+  target: trim. Open: `TODO`s for related work (team), the (c) policies and iterative BCO;
+  presenters to confirm.
