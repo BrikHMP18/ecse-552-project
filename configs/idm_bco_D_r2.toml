@@ -1,0 +1,21 @@
+# Method (g), round 2 (docs/experiments/bco.md): idm_bco_D_r1 fine-tuned on the source demos plus
+# every rollout of the policy chain so far on D; then labels D's videos (images only, R1).
+collections = [
+  "data/source-deterministic-n300-seed0",
+  "data/source-turned-n100-seed600000",
+  "bco:rollouts/D-r1-seed{seed}",
+  "bco:rollouts/D-r2-seed{seed}",
+]
+init = "out:idm_bco_D_r1/seed{seed}/best.pt"  # same seed; target standardization kept
+
+image_size = 128
+pretrained = true
+epochs = 5
+batch_size = 64
+lr = 1e-4
+weight_decay = 1e-4
+seed = 0
+
+[label]
+collection = "data/D-deterministic-n200-seed400000"
+out = "bco:labels/D-deterministic-idm_bco_D_r2-seed{seed}"

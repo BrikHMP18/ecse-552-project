@@ -14,16 +14,9 @@ import json
 import subprocess
 from pathlib import Path
 
-import numpy as np
 import torch
 
-from action_free.idm import (
-    load_idm,
-    load_transitions,
-    predict_transitions,
-    select_device,
-    split_files,
-)
+from action_free.idm import label_collection, load_idm, select_device, split_files
 
 
 def _git(*args: str) -> str:
@@ -44,11 +37,8 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     device = select_device()
-    model = load_idm(a.checkpoint, device)
     files = split_files(a.collection)
-    for f in files:
-        t = load_transitions([f], cfg["image_size"], labeled=False)
-        np.save(out / f"{f.stem}.npy", predict_transitions(model, t, device).numpy())
+    label_collection(load_idm(a.checkpoint, device), files, cfg["image_size"], out, device)
     info = {
         "collection": a.collection.name,
         "episodes": len(files),

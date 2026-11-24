@@ -17,9 +17,16 @@ volume (learning curves). Losses go to W&B through the Modal secret `wandb-secre
     modal run --detach scripts/modal_train.py --config configs/act_oracle_A.toml --seeds 0  # (d)
 
 Checkpoint selection and evaluation run locally (`scripts/select_checkpoint.py`,
-`scripts/evaluate_policy.py`): they need the simulator.
+`scripts/evaluate_policy.py`), or on Modal with `scripts/modal_rollouts.py`.
+
+Secrets: `ECSE552_MODAL_SECRETS` lists the Modal secrets to attach (default
+`huggingface-secret,wandb-secret`; empty for none). Without `WANDB_API_KEY` nothing is logged
+to W&B; without a Hugging Face token use `--no-push` (smoke runs never push).
+Labels named `bco:<path>` (iterative BCO, docs/experiments/bco.md) are read from the volume
+`ecse552-bco`, not downloaded.
 """
 
+import os
 import subprocess
 import tomllib
 from pathlib import Path
@@ -30,7 +37,9 @@ GPU = "A10G"  # Proposal: one NVIDIA A10G.
 app = modal.App("ecse552-act")
 data_volume = modal.Volume.from_name("ecse552-data", create_if_missing=True)
 out_volume = modal.Volume.from_name("ecse552-outputs", create_if_missing=True)
-secrets = [modal.Secret.from_name("huggingface-secret"), modal.Secret.from_name("wandb-secret")]
+bco_volume = modal.Volume.from_name("ecse552-bco", create_if_missing=True)
+SECRET_NAMES = os.environ.get("ECSE552_MODAL_SECRETS", "huggingface-secret,wandb-secret")
+secrets = [modal.Secret.from_name(n) for n in SECRET_NAMES.split(",") if n]
 PUSH_FILES = (
     "policy_best.ckpt",
     "policy_last.ckpt",
@@ -134,7 +143,9 @@ def check() -> dict:
     return info
 
 
-@app.function(image=image, volumes={"/data": data_volume}, timeout=3600, secrets=secrets)
+@app.function(
+    image=image, volumes={"/data": data_volume, "/bco": bco_volume}, timeout=3600, secrets=secrets
+)
 def prepare(
     dataset: str,
     revision: str,
@@ -145,12 +156,17 @@ def prepare(
     use_robot_state: bool,
     model_repo: str | None,
     card: str,
+    smoke: bool = False,
 ) -> dict:
     """Download the collections once, export ACT HDF5 per source size; create the model repo."""
     from huggingface_hub import HfApi, snapshot_download
 
     from action_free.act_original import export_dataset, plausible
+    from action_free.bco import resolve
     from action_free.data import detour_files, episode_files
+
+    def in_volume(actions: str) -> bool:
+        return actions.startswith("bco:")
 
     local = Path(f"/data/{dataset.replace('/', '__')}/{revision}")
     meta = ("manifest.json", "provenance.txt", "packages.txt", "initial_states.csv")
@@ -158,7 +174,11 @@ def prepare(
     for folder, n in [(source, max(sizes)), *((t["folder"], t["num_episodes"]) for t in targets)]:
         patterns += [f"{folder}/{m}" for m in meta]
         patterns += [f"{folder}/episode_{i:05d}.npz" for i in range(n)]
-    patterns += [f"{t['actions']}/*" for t in targets if t["actions"] != "true"]
+    patterns += [
+        f"{t['actions']}/*"
+        for t in targets
+        if t["actions"] != "true" and not in_volume(t["actions"])
+    ]
     snapshot_download(
         dataset, repo_type="dataset", revision=revision, allow_patterns=patterns, local_dir=local
     )
@@ -174,7 +194,12 @@ def prepare(
             tag += "-state"
         collections = [(files, None)]
         for t in targets:
-            labels = None if t["actions"] == "true" else local / t["actions"]
+            if t["actions"] == "true":
+                labels = None
+            elif in_volume(t["actions"]):
+                labels = Path(resolve(t["actions"], 0, smoke))  # {seed} is already filled in
+            else:
+                labels = local / t["actions"]
             target_files = episode_files(local / t["folder"], t["num_episodes"])
             tag += (
                 f"+{t['folder']}-n{t['num_episodes']}-{'true' if labels is None else labels.name}"
@@ -352,7 +377,16 @@ def main(
         key = str(targets)
         if key not in exported:
             exported[key] = prepare.remote(
-                hub["dataset"], hub["revision"], source, sizes, targets, exclude, state, repo, card
+                hub["dataset"],
+                hub["revision"],
+                source,
+                sizes,
+                targets,
+                exclude,
+                state,
+                repo,
+                card,
+                smoke,
             )
         for n in sizes:
             run = (cfg, exported[key][n], f"{run_root}/n{n}/seed{s}", s)

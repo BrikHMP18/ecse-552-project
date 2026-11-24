@@ -6,6 +6,10 @@ Hugging Face dataset pinned in `configs/data.toml` ([hub]) into the volume
 `idm.train_idm` and writes best.pt, last.pt, history.json and config.json to
 `ecse552-idm-outputs:/<config>/seed<seed>`. No secrets are needed.
 
+Iterative BCO (g, docs/experiments/bco.md): `bco:` and `out:` paths in `collections` and
+`init` are read from the volumes (`action_free.bco.resolve`), not downloaded; with a
+`[label]` table the run then labels that collection into `[label] out` in `ecse552-bco`.
+
 Runs are spawned, so with --detach they finish even if this terminal closes once the
 "spawned" lines are printed (the summary is then only in the volume's history.json).
 
@@ -24,6 +28,8 @@ GPU = "A10G"
 app = modal.App("ecse552-idm")
 data_volume = modal.Volume.from_name("ecse552-idm-data", create_if_missing=True)
 out_volume = modal.Volume.from_name("ecse552-idm-outputs", create_if_missing=True)
+bco_volume = modal.Volume.from_name("ecse552-bco", create_if_missing=True)
+VOLUME_PREFIXES = ("bco:", "out:")  # paths read from the volumes, not downloaded
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -62,37 +68,53 @@ def download(collections: list[str], dataset: str, revision: str) -> None:
     gpu=GPU,
     memory=32768,
     timeout=4 * 3600,
-    volumes={"/root/data": data_volume, "/outputs": out_volume},
+    volumes={"/root/data": data_volume, "/outputs": out_volume, "/bco": bco_volume},
 )
-def train(cfg: dict, run: str, max_episodes: int | None) -> dict:
-    from action_free.idm import train_idm
+def train(cfg: dict, run: str, max_episodes: int | None, smoke: bool = False) -> dict:
+    from action_free.bco import resolve
+    from action_free.idm import label_collection, load_idm, select_device, split_files, train_idm
 
     os.chdir("/root")  # the config's `data/<name>` paths resolve to the data volume
     out_dir = Path("/outputs") / run
+    s = cfg["seed"]
+    cfg = {**cfg, "collections": [resolve(c, s, smoke) for c in cfg["collections"]]}
+    if cfg.get("init"):
+        cfg["init"] = resolve(cfg["init"], s, smoke)
     try:
-        return train_idm(cfg, out_dir, max_episodes)
+        result = train_idm(cfg, out_dir, max_episodes)
     finally:
         out_volume.commit()
+    if "label" in cfg:
+        files = split_files(Path(cfg["label"]["collection"]))[:max_episodes]
+        out = Path(resolve(cfg["label"]["out"], s, smoke))
+        device = select_device()
+        model = load_idm(out_dir / "best.pt", device)
+        label_collection(model, files, cfg["image_size"], out, device)
+        bco_volume.commit()
+        print(f"labelled {len(files)} episodes into {out}")
+    return result
 
 
 @app.local_entrypoint()
 def main(config: str = "configs/idm.toml", seeds: str = "0", smoke: bool = False) -> None:
     cfg = tomllib.loads(Path(config).read_text())
     hub = tomllib.loads(Path("configs/data.toml").read_text())["hub"]
-    collections = cfg["collections"] + ([cfg["target"]] if "target" in cfg else [])
+    collections = cfg["collections"] + [cfg["target"]] * ("target" in cfg)
+    collections += [cfg["label"]["collection"]] * ("label" in cfg)
+    collections = [c for c in collections if not c.startswith(VOLUME_PREFIXES)]
     download.remote(collections, hub["dataset"], hub["revision"])
 
     name = Path(config).stem + ("-smoke" if smoke else "")
     if smoke:
         cfg["epochs"] = 1
     jobs = [
-        ({**cfg, "seed": int(s)}, f"{name}/seed{s}", 10 if smoke else None)
+        ({**cfg, "seed": int(s)}, f"{name}/seed{s}", 10 if smoke else None, smoke)
         for s in seeds.split(",")
     ]
     calls = [train.spawn(*job) for job in jobs]  # independent of this client
-    for (_, run, _), call in zip(jobs, calls):
+    for (_, run, *_), call in zip(jobs, calls):
         print(f"spawned {run} ({call.object_id})")
-    for (_, run, _), call in zip(jobs, calls):
+    for (_, run, *_), call in zip(jobs, calls):
         kept = call.get()
         mae = ", ".join(f"{k} {v:.4f}" for k, v in kept["val"]["mae"].items())
         which = "last" if "target" in cfg else "best"  # DANN keeps the last epoch

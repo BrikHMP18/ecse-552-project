@@ -266,6 +266,7 @@ def errors(pred: torch.Tensor, target: torch.Tensor, std: torch.Tensor) -> dict:
 def train_idm(cfg: dict, out_dir: Path, max_episodes: int | None = None) -> dict:
     """Train on the train split of cfg["collections"]; keep the epoch with the lowest
     standardized MAE on their validation split (best.pt). Writes history.json in out_dir.
+    With cfg["init"], a checkpoint path, training starts from that IDM (fine-tuning).
 
     With cfg["target"] (DANN): each source batch is paired with a target batch of the same
     size, the action loss stays on source only, and best.pt is the last epoch."""
@@ -280,7 +281,11 @@ def train_idm(cfg: dict, out_dir: Path, max_episodes: int | None = None) -> dict
 
     train, val = load_transitions(files("train"), size), load_transitions(files("val"), size)
     model = IDM(pretrained=cfg["pretrained"]).to(device)
-    model.set_target_stats(train.targets.to(device))
+    if cfg.get("init"):
+        # Fine-tuning (iterative BCO): weights and target standardization of a previous IDM.
+        model.load_state_dict(torch.load(cfg["init"], map_location="cpu")["model"])
+    else:
+        model.set_target_stats(train.targets.to(device))
     std = model.target_std.cpu()
 
     loader = DataLoader(
@@ -390,3 +395,14 @@ def load_idm(path: Path, device: torch.device) -> IDM:
     model = IDM(pretrained=False)
     model.load_state_dict(ckpt["model"])
     return model.to(device).eval()
+
+
+def label_collection(
+    model: IDM, files: list[Path], image_size: int, out: Path, device: torch.device
+) -> None:
+    """Pseudo-labels: one `episode_XXXXX.npy`, (T, 7) float32 absolute targets, per episode.
+    The episodes are read as images only (R1)."""
+    out.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        t = load_transitions([f], image_size, labeled=False)
+        np.save(out / f"{f.stem}.npy", predict_transitions(model, t, device).numpy())

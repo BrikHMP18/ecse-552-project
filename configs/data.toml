@@ -16,6 +16,7 @@ target_D_videos = 400_000
 target_E_videos = 500_000    # added 11 November 2026 (behaviour shift: turned grasp)
 source_turned_demos = 600_000  # labeled cube demos with the grasp turned by 90 degrees: IDM training only
 target_F_videos = 700_000    # E in blue (20 November 2026): IDM label-error check only so far
+bco_rollouts = 800_000       # (g) iterative BCO: our policy's rollouts on target D (round r: 800,000 + 200 (r - 1) + i, i < 200); IDM training only
 validation = 900_000         # rollouts for checkpoint selection and the R2 decision (source only)
 test = 1_000_000             # final rollouts: each selected checkpoint once, every object
 

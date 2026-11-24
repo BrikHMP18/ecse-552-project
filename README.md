@@ -85,6 +85,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
 | (b) IDM | Done, 3 seeds on A, D, E (and E without the label filter) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
 | (c) DANN | IDM seed 0 (labels worse than (b)); policies seed 0 training | [dann.md](docs/experiments/dann.md), `configs/idm_dann_{A,D,E}.toml`, `configs/act_dann_{A,D,E}.toml` |
+| (g) Iterative BCO on D | Protocol and code, no run | [bco.md](docs/experiments/bco.md), `configs/{idm,act}_bco_D_r{1,2}.toml` |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 (`third_party/act`, unmodified), images only, 300 source demos.

@@ -230,3 +230,26 @@ def test_dann_stops_when_the_target_has_no_full_batch(tmp_path):
     }
     with pytest.raises(ValueError, match="fewer train pairs"):
         train_idm(cfg, tmp_path / "run")
+
+
+def test_fine_tuning_starts_from_the_init_checkpoint(tmp_path):
+    from action_free.idm import train_idm
+
+    cfg = {
+        "image_size": 16,
+        "pretrained": False,
+        "epochs": 1,
+        "batch_size": 8,
+        "lr": 1e-3,
+        "weight_decay": 0.0,
+        "seed": 0,
+    }
+    first = _fake_image_collection(tmp_path / "first", num_episodes=10, steps=4, size=16)
+    train_idm({**cfg, "collections": [str(first)]}, tmp_path / "init")
+    init = torch.load(tmp_path / "init" / "best.pt")["model"]
+    other = _fake_image_collection(tmp_path / "other", num_episodes=12, steps=4, size=16)
+    run = {**cfg, "collections": [str(other)], "init": str(tmp_path / "init" / "best.pt")}
+    train_idm({**run, "lr": 0.0}, tmp_path / "tuned")  # lr 0: the weights stay those of init
+    tuned = torch.load(tmp_path / "tuned" / "best.pt")["model"]
+    for k in ("target_mean", "target_std", "head.0.weight", "encoder.conv1.weight"):
+        torch.testing.assert_close(tuned[k], init[k])

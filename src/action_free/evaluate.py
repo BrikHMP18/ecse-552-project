@@ -102,7 +102,14 @@ def rollout(
     device: torch.device,
     keep_frames: bool = False,
     execution: str = "chunk",
+    record: bool = False,
 ) -> dict:
+    """With `record`, also keeps the frames, the action sent at each step and the simulator
+    state before it (`actions`, `qpos`, `qvel`, `healthy`): the policy's own transitions for
+    the IDM (iterative BCO, `bco.py`)."""
+    keep_frames = keep_frames or record
+    steps_record: dict[str, list] = {"actions": [], "qpos": [], "qvel": []}
+    healthy = True
     np.random.seed(seed)
     ob, info = env.reset(seed=seed)
     u = env.unwrapped
@@ -137,14 +144,22 @@ def rollout(
             action = queue.pop(0)
         if absolute:
             action = to_delta(action, u._data.qpos)  # low-level control uses the robot state
-        ob, _, terminated, truncated, info = env.step(np.asarray(action, dtype=np.float32))
+        action = np.asarray(action, dtype=np.float32)
+        ob, _, terminated, truncated, info = env.step(action)
+        if record:
+            steps_record["actions"].append(action)
+            steps_record["qpos"].append(info["prev_qpos"])
+            steps_record["qvel"].append(info["prev_qvel"])
+            healthy = healthy and bool(info["healthy"])
         steps += 1
         success = success or bool(info["success"])
         done = bool(terminated or truncated)
         max_cube_z = max(max_cube_z, float(u._data.joint("object_joint_0").qpos[2]))
         if keep_frames:
             frames.append(ob)
+    recorded = {k: np.asarray(v, dtype=np.float32) for k, v in steps_record.items()}
     return {
+        **(recorded | {"healthy": healthy} if record else {}),
         "seed": seed,
         "success": success,
         "length": steps,
