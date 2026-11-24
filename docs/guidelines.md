@@ -118,6 +118,7 @@ grasp; ACT never sees those 100.
 
 - Report: `tab:methods` lacks "what is trained" and "what changes"; ACT has no figure;
   `tab:objects` lacks "used by" and the splits per method; DANN details are a `\todo`.
-- Slides: no outline, validation-design or "where to find" slide; no ACT slide or figure;
-  methods are bullets, not the table, and no shortcoming of each alternative; the data
-  slide has no distribution or splits; 16 main slides; DANN details are a `TODO`.
+- Slides: restructured on 23 November to this storyline (outline, existing approaches,
+  ACT figure with the methods table, data with use and splits, validation design, critique
+  with fixes, questions with links; 15 content slides). Open: `TODO`s for the (c) policies
+  and iterative BCO; presenters to confirm.
