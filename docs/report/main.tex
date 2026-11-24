@@ -41,9 +41,9 @@
   normally requires new paired demonstrations. We study whether videos without actions are
   enough to extend an image-only policy from one object to another. In simulation
   (OCBench, UR5e arm), labeled demonstrations exist only for a red source cube; each
-  target object has only videos. An inverse dynamics model (IDM), trained on the source
-  and adapted to the target with domain-adversarial training (DANN), labels the target
-  videos, and an image-only ACT policy trains on both. The reference policies are
+  target object has only videos. An inverse dynamics model (IDM), trained on the source,
+  labels the target videos, and an image-only ACT policy trains on both; we also adapt
+  the IDM to each target with domain-adversarial training (DANN). The reference policies are
   measured with three seeds each. The source-only policy reaches $90.7 \pm 12.1\%$ test
   success on the source cube, transfers to red blocks of another shape (82\% and 59\%)
   and never grasps a blue object (0.3\% and 0\%). Training the same policy with colour
@@ -57,7 +57,9 @@
   83.7\% and 95.0\% success); it keeps the source success on the first two, while on the
   turned block one seed of three loses it. Augmentation covers appearance; action-free
   videos are what a change of behaviour needs, provided the IDM has seen that behaviour
-  in labeled source data. \todo{DANN (c) against (b) and (e), and the final conclusion.}
+  in labeled source data. Adapting the IDM with DANN, in one training seed, made its
+  labels three to four times worse on every target, so no DANN policy was trained: in our
+  setting the unadapted IDM is enough.
 \end{abstract}
 
 \section{Introduction}
@@ -134,8 +136,9 @@ $90^\circ$ turn (behaviour). E was added after the results of the augmentation b
 large pretrained models and real robots are out of scope. This draft has the source-only
 baseline and the augmentation baseline on every object, the oracle for every target, and
 the unadapted IDM (b) on A, D and E. B and C leave no usable gap for a method that uses
-target videos (Section~\ref{sec:results}), so (b) is not run on them.
-\todo{Targets of (c).}
+target videos (Section~\ref{sec:results}), so (b) is not run on them. DANN (c) adapts the
+IDM to A, D and E; a rule fixed before measuring trains its policies only where its labels
+beat those of (b), which happened on no target (Section~\ref{sec:dann}).
 
 \subsection{Constraints}
 % C4.
@@ -147,7 +150,8 @@ call must finish within the 100~ms control period.
 
 \begin{table}[t]
   \caption{Requirements (C4) and their status in this draft. R4 and R5 are filled for
-  the augmentation baseline (e) and the unadapted IDM (b); (c) is pending.}
+  the augmentation baseline (e) and the unadapted IDM (b); (c) has no policy
+  (Section~\ref{sec:dann}).}
   \label{tab:requirements}
   \centering
   \small
@@ -164,9 +168,9 @@ call must finish within the 100~ms control period.
       Met: IDM sees images only; policy robot state zeroed \\
     R4 & Target & Success gain over the source-only policy on each target, as a fraction
       of the oracle's gain & $\geq 50\%$ of the gap &
-      (e): Table~\ref{tab:r4}; (b): met on A, D, E; \todo{(c)} \\
+      (e): Table~\ref{tab:r4}; (b): met on A, D, E; (c): no policy \\
     R5 & Retention & Drop in source success after adding target data & $\leq 10$ points &
-      (e): no drop (95.0\%); (b): met on A, D; not on E (71.0\%); \todo{(c)} \\
+      (e): no drop (95.0\%); (b): met on A, D; not on E (71.0\%); (c): no policy \\
     R6 & Real time & Policy inference per call, within one 10~Hz control step (IDM
       offline) & $< 100$~ms & Met: 10 to 18~ms (95th percentile) in every test run \\
     \bottomrule
@@ -320,8 +324,8 @@ logged to Weights~\&~Biases. Rendering and rollouts run on a local GPU. The code
 \subsection{Designed solution and implementation}
 \label{sec:solution}
 % C6.
-The pipeline has three stages: (1) train an IDM on labeled source transitions, adapting
-it to the target with DANN; (2) label the target videos with the IDM; (3) train an
+The pipeline has three stages: (1) train an IDM on labeled source transitions (for (c),
+adapting it to the target with DANN); (2) label the target videos with the IDM; (3) train an
 image-only ACT policy on source demonstrations plus pseudo-labeled target videos. One
 policy is trained per target. IDM and policy share no weights.
 
@@ -363,10 +367,18 @@ the same loss, scaled by $\lambda$:
   \mathcal{L}_{\text{dom}} = \mathrm{BCE}\big(d_\phi(h_\theta(o_t, o_{t+1})),\, y_{\text{dom}}\big).
 \end{equation}
 The encoder is thus pushed towards features that predict source actions but do not
-reveal the domain. $\lambda$ ramps up on a schedule fixed in advance, and $\lambda = 0$
-gives the unadapted IDM of method (b). Only target \emph{frames} enter this stage (R1).
-IDM checkpoints are selected by source validation error, never with target actions.
-\todo{Discriminator architecture, $\lambda$ schedule and final value, batch composition.}
+reveal the domain. Only target \emph{frames} enter this stage (R1). The discriminator is
+an MLP ($1536 \rightarrow 256 \rightarrow 1$) on the concatenated camera features, trained
+with Adam (learning rate $3 \times 10^{-4}$); the IDM keeps the optimizer of (b). Each step
+passes 64 source and 64 target pairs through the encoder in one batch, so batch
+normalization sees both domains; the action loss uses the source pairs only. $\lambda$
+ramps from 0 to $\lambda_{\max} = 0.5$ as $\lambda_{\max}\,(2 / (1 + e^{-\gamma p}) - 1)$
+with $\gamma = 10$ over training progress $p \in [0, 1]$. The last of the 20 epochs is
+kept: choosing an epoch by target label error would use target actions (R1). These
+settings were fixed before any run and not tuned. DANN adapts on the 160 training
+episodes of each target's 200 videos; the other 40 only measure the discriminator. With
+$\lambda = 0$ (the control of Section~\ref{sec:dann}) the encoder receives no gradient from
+the discriminator, but its batches are still mixed, so it is not the IDM of (b).
 
 \paragraph{Policy.}
 The policy is the original ACT \citep{zhao2023act}, run from the authors' code without
@@ -495,7 +507,7 @@ released.
 All alternatives are run on our own data with the same ACT architecture, training budget
 and evaluation (Table~\ref{tab:methods}). Methods (a) and (d) anchor R4: the source-only
 floor and the oracle with true target actions. Comparing (b) and (c) isolates the
-effect of adapting the IDM, since they differ only in $\lambda$. Method (e) tests whether
+effect of adapting the IDM, since they differ only in how the IDM is trained. Method (e) tests whether
 target videos are needed at all: it is the baseline with every training sample augmented
 \citep{laskin2020rad}. The first setting, fixed before its results, jitters brightness,
 contrast and saturation by $\pm 30\%$, draws the hue over the full circle so that the red
@@ -523,7 +535,7 @@ Optional method (f) moves the alignment from the IDM to the policy's encoder
     & Method & Target data & Target labels \\
     \midrule
     (a) & Source only & None & None \\
-    (b) & Unadapted IDM ($\lambda = 0$) & Videos & IDM pseudo-labels \\
+    (b) & Unadapted IDM & Videos & IDM pseudo-labels \\
     (c) & DANN-adapted IDM (ours) & Videos & IDM pseudo-labels \\
     (d) & Oracle & Demonstrations & True actions \\
     (e) & Source only with augmentation & None & None \\
@@ -538,7 +550,8 @@ Optional method (f) moves the alignment from the IDM to the policy's encoder
 % C10: quantitative comparison against alternatives on C4.
 Measured, with three seeds each: the source-only baseline (a) and the augmentation
 baseline (e) on every object, the oracle (d) for every target, and the unadapted IDM (b)
-on A, D and E. The DANN-adapted IDM (c) is pending. Figure~\ref{fig:results} gives the
+on A, D and E. The DANN-adapted IDM (c), one training seed, is reported by its label
+error only (Section~\ref{sec:dann}). Figure~\ref{fig:results} gives the
 overview; the tables give every seed.
 
 \begin{figure}[t]
@@ -547,7 +560,8 @@ overview; the tables give every seed.
   \caption{Test success per object: mean of three seeds (bars and numbers), standard
   deviation (lines) and each seed (dots), 100 rollouts per seed. The oracle is the one
   trained for that target; (b) is run on A, D and E only. The low dot of the oracle for C
-  is its seed 0 (Section~\ref{sec:results}, Oracle C). \todo{Add (c).}}
+  is its seed 0 (Section~\ref{sec:results}, Oracle C). (c) has no policy
+  (Section~\ref{sec:dann}).}
   \label{fig:results}
 \end{figure}
 
@@ -772,7 +786,8 @@ changing. With augmentation the training loss stays close to the validation loss
   \centering
   \includegraphics[width=\linewidth]{figures/curves.png}
   \caption{ACT's L1 action loss per epoch, three seeds per panel. For (b) the loss on
-  target episodes is measured against the pseudo-labels. \todo{Add (c).}}
+  target episodes is measured against the pseudo-labels. (c) has no policy
+  (Section~\ref{sec:dann}).}
   \label{fig:losses}
 \end{figure}
 
@@ -784,7 +799,7 @@ each target. Only the last wrist joint and the gripper differ between collection
 other moving joints stay below 0.04~rad everywhere.
 
 \begin{table}[t]
-  \caption{Mean absolute error of the unadapted IDM ($\lambda = 0$) against the true
+  \caption{Mean absolute error of the unadapted IDM against the true
   targets, per transition, mean of three IDM seeds: last wrist joint (rad) and gripper
   opening (in $[0, 1]$). ``Turned'' adds the 100 source demonstrations with a turned
   grasp to the 300; it is the IDM that labels every target. F is E in blue, a check with
@@ -825,7 +840,7 @@ the label jumps by several radians from one step to the next (Figure~\ref{fig:la
 The label filter (Section~\ref{sec:solution}) drops 21 to 23 of E's episodes, 4 to 5 of
 A's and 0 to 3 of D's; checked against the true targets, it misses 1 or 2 bad episodes on
 E and drops at most 2 good ones, and it lowers the mean wrist error per episode on E from
-0.21 to 0.033~rad. \todo{The same table for the DANN-adapted IDM (c).}
+0.21 to 0.033~rad. Section~\ref{sec:dann} compares the DANN-adapted IDM (c).
 
 \begin{figure}[t]
   \centering
@@ -881,6 +896,82 @@ we do not attribute the drop to the filter. Nor does the filter change the succe
 what makes seed 0 fail on the source; a policy that has to learn when to turn may turn on
 the cube as well, which we have not checked.
 
+\subsection{DANN-adapted IDM (c)}
+\label{sec:dann}
+A rule fixed before the target label error was measured decides whether (c) goes further:
+DANN improves on a target if its target sMAE is at least 5\% below the lowest of the three
+seeds of the unadapted IDM (0.0293 on A, 0.0349 on D, 0.0650 on E); only then are seeds 1
+and 2 and policies (c) trained. One training seed (0) was run on A, D and E, and on D a
+control with $\lambda = 0$ (Section~\ref{sec:solution}). Table~\ref{tab:dann} and
+Figure~\ref{fig:dann} give their label error against the true actions, which serve here
+for evaluation only (R1).
+
+\begin{table}[t]
+  \caption{Label error of IDM seed 0 against the true targets, for evaluation only (R1):
+  sMAE on the 50 held-out source demonstrations and on the 200 videos of the target; mean
+  absolute error of the last wrist joint (rad) and of the gripper opening on the target;
+  videos the 2~rad label filter drops (of 200). (b) is the unadapted IDM.}
+  \label{tab:dann}
+  \centering
+  \small
+  \begin{tabular}{@{}llrrrrr@{}}
+    \toprule
+    IDM & Target & Source sMAE & Target sMAE & Wrist & Gripper & Dropped \\
+    \midrule
+    (b) Unadapted & A & 0.020 & 0.030 & 0.043 & 0.021 & 5 \\
+    (c) DANN & A & 0.030 & 0.114 & 0.521 & 0.026 & 29 \\
+    \midrule
+    (b) Unadapted & D & 0.020 & 0.065 & 0.031 & 0.113 & 3 \\
+    Control, $\lambda = 0$ & D & 0.021 & 0.607 & 2.684 & 0.134 & 198 \\
+    (c) DANN & D & 0.028 & 0.220 & 0.690 & 0.125 & 145 \\
+    \midrule
+    (b) Unadapted & E & 0.020 & 0.065 & 0.278 & 0.016 & 21 \\
+    (c) DANN & E & 0.028 & 0.198 & 1.054 & 0.024 & 28 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dann.png}
+  \caption{Label error (sMAE) on each target and videos the label filter drops, IDM seed 0:
+  unadapted IDM (b), the control with $\lambda = 0$ (D only) and DANN (c). True actions for
+  evaluation only (R1).}
+  \label{fig:dann}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dann_curves.png}
+  \caption{DANN training, seed 0. Left: source validation sMAE per epoch, with the three
+  seeds of the unadapted IDM. Right: the discriminator's loss; the dashed line is chance
+  ($\ln 2$).}
+  \label{fig:danncurves}
+\end{figure}
+
+\emph{DANN improves on no target.} Its target sMAE is three to four times that of (b):
+0.114 against 0.030 on A, 0.220 against 0.065 on D and 0.198 against 0.065 on E. The label
+filter drops 29, 145 and 28 videos instead of 5, 3 and 21. The error is mostly in the last
+wrist joint (0.52 to 1.05~rad against 0.03 to 0.28), in every phase of the episode, the
+approach included; the other arm joints stay within 0.06~rad. Its source error rises as
+well (0.028 to 0.030 against 0.020). By the rule, DANN gets no further seeds and no policy:
+(c) is reported by its label error only.
+
+\emph{Mixed batches are the likely cause.} The control without the reversed gradient is
+the worst IDM: sMAE 0.607 on D, with 198 of its 200 videos dropped. Like DANN, and unlike
+(b), it passes source and target pairs through the encoder in the same batches, so batch
+normalization sees both domains. The adversarial term recovers part of the error (0.607 to
+0.220), not down to (b). This points to the mixed batches as the main cause; it is a
+hypothesis from one seed, not a tested explanation.
+
+\emph{The adversarial game does not settle.} The discriminator's loss stays near chance
+($\ln 2$) in most epochs while its accuracy on source and target validation pairs swings
+between 0 and 1 (Figure~\ref{fig:danncurves}).
+
+Two checks are open: the wrist error wrapped to one turn, which would tell a full-turn
+ambiguity from a shifted angle, and the control with its batch-normalization statistics
+recomputed on source images only, which would test the mixed-batch hypothesis.
+
 \subsection{Comparison with alternatives}
 Table~\ref{tab:main} holds the comparison on the C4 constraints (C9, C10), and
 Table~\ref{tab:r4} the requirement R4 for (e) and (b).
@@ -888,7 +979,8 @@ Table~\ref{tab:r4} the requirement R4 for (e) and (b).
 \begin{table}[t]
   \caption{Test success on each target and on the source (mean over three seeds, 100
   rollouts each). (a) and (e) use no target, so their source column is one number; for (b)
-  and (d) it is the range over their targets. (b) is not run on B and C.}
+  and (d) it is the range over their targets. (b) is not run on B and C; (c) has no policy
+  (Section~\ref{sec:dann}).}
   \label{tab:main}
   \centering
   \small
@@ -899,7 +991,7 @@ Table~\ref{tab:r4} the requirement R4 for (e) and (b).
     (a) & Source only & 0.3\% & 82.3\% & 59.0\% & 0.0\% & 0.0\% & 90.7\% \\
     (e) & Augmentation & \textbf{98.7\%} & \textbf{90.7\%} & \textbf{68.0\%} & 66.7\% & 0.3\% & 95.0\% \\
     (b) & Unadapted IDM & 83.0\% & -- & -- & 83.7\% & \textbf{95.0\%} & 71.0--93.3\% \\
-    (c) & DANN-adapted IDM & \todo{} & -- & -- & \todo{} & \todo{} & \todo{} \\
+    (c) & DANN-adapted IDM & -- & -- & -- & -- & -- & -- \\
     (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & 89.0\% & 87.0--96.3\% \\
     \bottomrule
   \end{tabular}
@@ -932,7 +1024,10 @@ D, 26 points between (e) and the oracle, and on E, 89 points, where (e) gains no
 The unadapted IDM (b) meets R4 on A, D and E: it closes 17 of the 26 points on D and all
 of the gap on E. It meets R5 on A and D, not on E (Section~\ref{sec:idmpolicy}). Its
 policies are the same network as the baseline: 15 to 16~ms per call (95th percentile) in
-its 24 test runs (R6). \todo{(c) against (b) and (e); negative transfer if alignment hurts.}
+its 24 test runs (R6). (c) is not compared on success: by the rule fixed in advance it has
+no policy, because its labels are worse than those of (b) on every target
+(Section~\ref{sec:dann}). Adapting the IDM transferred negatively, at the level of the
+labels.
 
 \subsection{Results on earlier data}
 \label{sec:earlier}
@@ -1005,8 +1100,8 @@ actions serve only the oracle, the label-error diagnostic and evaluation. R3 and
 met by every model measured: images only, at most 18~ms per call. The augmentation
 baseline meets R4 on A, B and D, not on E ($G_T = 0.00$), and R5 on the source. The
 unadapted IDM (b) meets R4 on A, D and E ($G_T$ 0.97, 0.90, 1.07) and R5 on A and D; on E
-it does not meet R5 (a drop of 19.7 points, from one seed of three). \todo{R4 and R5 for
-(c).}
+it does not meet R5 (a drop of 19.7 points, from one seed of three). R4 and R5 are not
+measured for (c), which has no policy.
 
 \paragraph{Appearance does not need target videos.}
 The source-only policy fails on everything that is not plain red, and colour jitter on
@@ -1022,7 +1117,11 @@ either (2.3\% on E): what is missing is when to turn, which only the target show
 are the targets where action-free videos can add something, and they do: with
 pseudo-labels from an IDM that was never adapted, the policy reaches 83.7\% on D and
 95.0\% on E, close to or level with the oracle. On A, where only the colour changes, the
-same videos give 83.0\%, below augmentation (98.7\%). \todo{Interpret (c) on A, D and E.}
+same videos give 83.0\%, below augmentation (98.7\%). Adapting the IDM with DANN helped on
+none of them. On A and D the unadapted IDM already labels within a few hundredths of its
+source error (Section~\ref{sec:idm}), which leaves little to gain. On E the action itself
+changes, a different wrist motion, while DANN assumes the same task under another
+appearance: aligning features cannot supply a motion the labeled data do not show.
 
 \paragraph{The IDM transfers actions it has seen.}
 The IDM needed labeled source demonstrations of the turned grasp: without them its wrist
@@ -1061,7 +1160,9 @@ our first choice of targets could not answer the research question, because
 augmentation solves them (Section~\ref{sec:targetE}). The IDM could not label E from the
 300 source demonstrations, which led to the turned source demonstrations, and it
 confuses wrist angles one full turn apart, which led to the label filter
-(Section~\ref{sec:idm}). \todo{Problems met with DANN.}
+(Section~\ref{sec:idm}). DANN made the labels worse on every target, its control without
+the reversed gradient worst of all, and its discriminator never settled; by the rule fixed
+before measuring, we stopped at one seed and trained no policy (Section~\ref{sec:dann}).
 
 \paragraph{Limitations.}
 \begin{itemize}
@@ -1094,7 +1195,9 @@ confuses wrist angles one full turn apart, which led to the label filter
   \item \textbf{Adversarial alignment.} DANN aligns marginal feature distributions; it
   does not guarantee that actions remain readable from the aligned features
   \citep{zhao2019invariant}, and it is weaker for regression than for classification
-  \citep{nejjar2023daregram}. \todo{Outcome from the per-component IDM errors.}
+  \citep{nejjar2023daregram}. Here DANN raised mostly the wrist error, in every phase
+  (Section~\ref{sec:dann}). Our DANN result has one training seed, its settings were fixed
+  and not tuned (R1), and the two checks that would explain it are open.
   \item \textbf{Operations.} The original ACT code cannot resume, so a preempted cloud
   run restarts from zero.
 \end{itemize}
@@ -1125,10 +1228,18 @@ labeled source data, and its errors are full turns of the wrist, which a filter 
 labels removes without changing the success. (4) R5 is met on A and D, not on E, where one
 seed of three loses the source.
 
+\paragraph{Conclusions of DANN.}
+(1) In one training seed, DANN made the IDM's labels three to four times worse on A, D and
+E, so by the rule fixed in advance (c) has no policy. (2) The control without the reversed
+gradient is worse still, which points to batches that mix source and target images; this
+is not yet tested. (3) On A and D the unadapted IDM left little for alignment to correct,
+and on E the change is in the action, not in the appearance.
+
 \paragraph{Conclusion.}
-\todo{Answer the research question with (c): does adapting the IDM add anything to (b)?
-So far, action-free videos labeled by an unadapted IDM close the gap to the oracle on D
-and E, and retain the source on A and D.}
+In our setting, adapting the IDM adds nothing to (b): action-free videos labeled by an
+unadapted IDM recover 0.90 and 1.07 of the oracle's gain on D and E and retain the source
+on A and D, while DANN degrades the labels. Videos are what a change of behaviour needs,
+provided the IDM has seen the motion in labeled source data.
 
 \section*{Contributions}
 All members collaborated on and reviewed the report.

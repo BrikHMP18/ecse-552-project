@@ -442,7 +442,8 @@
   \begin{itemize}
     \item (b) meets R4 on A, D, E: $G_T$ = 0.97 [0.73, 1.25], 0.90 [0.79, 1.04], 1.07
       [0.98, 1.17].
-    \item \todo{(c) policies, seed 0: success on A, D, E and source.}
+    \item (c): no policy. Its labels are worse than (b)'s on every target, so the rule fixed
+      in advance stops it at the label error.
   \end{itemize}
 \end{frame}
 
@@ -477,9 +478,12 @@
   \includegraphics[width=0.84\linewidth]{../report/figures/dann.png}
   \raggedright\small
   \begin{itemize}
-    \item Seed 0; rule fixed before measuring. Errors are full wrist turns, in every phase.
-    \item The control is worst: mixing target images into the batches breaks the labels.
-    \item \todo{Policies (c), seed 0: success on A, D, E and source.}
+    \item One seed (0); rule fixed before measuring: 5\% below (b)'s best seed.
+    \item DANN: 3--4$\times$ (b)'s error on A, D, E, mostly the wrist, in every phase.
+    \item Control ($\lambda = 0$) worst: 0.607 on D. Hypothesis: mixed source + target
+      batches.
+    \item So no seeds 1, 2 and no policy (c). Open: wrist error wrapped to one turn;
+      batch-norm statistics from source only.
   \end{itemize}
   \src{Label error against the true actions, for evaluation only (R1).}
 \end{frame}
@@ -496,8 +500,8 @@
         \toprule
         R1, R3 & Met by design \\
         R2 & 300 demos (100 reach 37\%) \\
-        R4 & (e): A, B, D. (b): A, D, E. (c): \todo{} \\
-        R5 & (e) and (b) on A, D. Not (b) on E: one seed. (c): \todo{} \\
+        R4 & (e): A, B, D. (b): A, D, E. (c): no policy \\
+        R5 & (e) and (b) on A, D. Not (b) on E: one seed. (c): no policy \\
         R6 & Met: 10--18~ms per call \\
         \bottomrule
       \end{tabular}
@@ -528,7 +532,7 @@
         \item Augmentation covers appearance; videos are needed for a new behaviour.
         \item IDM-labeled videos recover 0.90 (D) and 1.07 (E) of the oracle's gain.
         \item The IDM must have seen the motion in source data.
-        \item DANN made the labels worse. \todo{And the policy?}
+        \item DANN made the labels worse: no policy (c).
         \item No target labels; ACT unchanged, 15~ms per call.
       \end{enumerate}
     \end{column}
