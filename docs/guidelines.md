@@ -112,7 +112,7 @@ grasp; ACT never sees those 100.
 | Errors per action component | Done (report `tab:idm`) |
 | Errors per phase (approach, grasp, lift) | **Missing**: local analysis, no training |
 | Run one established action-free method (latent action pretraining, iterative BCO) | **Missing**: (b) is non-iterative BCO; iterative BCO on top of (b) is the cheapest addition (needs a team decision and Modal runs) |
-| Confidence intervals for R4 and R5 | **Missing**: Wilson intervals exist for success rates, not for G_T or the source drop; bootstrap, no training |
+| Confidence intervals for R4 and R5 | Done for (b) and (e): `scripts/requirement_intervals.py`, [idm.md](experiments/idm.md); add to the report |
 
 ## Gaps in the drafts (23 November)
 
