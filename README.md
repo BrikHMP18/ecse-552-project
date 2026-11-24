@@ -6,10 +6,10 @@ exist only for the red **source** cube; each **target** object has only videos. 
 dynamics model (IDM), adapted with DANN, labels those videos, and an image-only ACT policy
 trains on both. Plan, methods (a)–(f), requirements R1–R6: [proposal](docs/proposal/main.pdf).
 
-## Where we are (23 November 2026)
+## Where we are (24 November 2026)
 
 Done with 3 seeds: baseline (a), augmentation (e), oracle (d) and the unadapted IDM (b)
-([results](#status-21-november-2026)). DANN (c): seed 0 of the adapted IDM; its policies are training.
+([results](#status-21-november-2026)). DANN (c): seed 0 of the adapted IDM and its policies.
 
 1. **Appearance shifts do not need target videos.** Colour jitter on the source data, with
    no target data, reaches 98.7% on the blue cube A, above the oracle (85.7%).
@@ -30,12 +30,13 @@ Done with 3 seeds: baseline (a), augmentation (e), oracle (d) and the unadapted 
    labels drops without changing the success.
 8. **R5 fails on E** (source 71.0%, −19.7 points) because of one seed of three; it holds on
    A and D, and on E without the filter (ablation).
-9. **DANN makes the labels worse.** Seed 0 of the adapted IDM labels A, D and E 3 to 4
-   times worse than (b), by full wrist turns; the control without the reversed gradient is
-   worse still, so mixing target images into the batches is the main cause
-   ([dann.md](docs/experiments/dann.md)).
+9. **DANN makes the labels worse, and the policies fail.** Seed 0 of the adapted IDM labels
+   A, D and E 3 to 4 times worse than (b), by a constant wrist offset (0.5 to 1 rad); the
+   control without the reversed gradient is worse still, so training with target images in
+   the batches is the main cause. Its policies (seed 0) reach 6%, 0% and 0% on A, D and E,
+   the level of (a), and fail at the grasp ([dann.md](docs/experiments/dann.md)).
 
-Next: policies (c) on seed 0, then the instructor's feedback ([Next steps](#next-steps)).
+Next: the instructor's feedback ([Next steps](#next-steps)).
 Details: [baselines.md](docs/experiments/baselines.md),
 [augmentation.md](docs/experiments/augmentation.md), [target_E.md](docs/experiments/target_E.md),
 [report](docs/report/main.pdf). Data and visualizer links: [Collections](#collections). Rules for coding agents:
@@ -84,7 +85,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (d) Oracle: source + target with true actions | Done, 3 seeds for A, B, C, D, E | [baselines.md](docs/experiments/baselines.md) |
 | (e) Augmentation: source only, colour jitter | Done, 3 seeds; settings open to review | [augmentation.md](docs/experiments/augmentation.md) |
 | (b) IDM | Done, 3 seeds on A, D, E (and E without the label filter) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
-| (c) DANN | IDM seed 0 (labels worse than (b)); policies seed 0 training | [dann.md](docs/experiments/dann.md), `configs/idm_dann_{A,D,E}.toml`, `configs/act_dann_{A,D,E}.toml` |
+| (c) DANN | Seed 0: labels worse than (b), policies 6%, 0%, 0% on A, D, E; seeds 1 and 2 not run | [dann.md](docs/experiments/dann.md), `configs/idm_dann_{A,D,E}.toml`, `configs/act_dann_{A,D,E}.toml` |
 | (g) Iterative BCO on D | Protocol and code, no run | [bco.md](docs/experiments/bco.md), `configs/{idm,act}_bco_D_r{1,2}.toml` |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
@@ -237,7 +238,6 @@ episodes whose labels jump).
 
 | Step | Owner |
 |---|---|
-| Policies (c), seed 0: checkpoint selection and test; seeds 1 and 2 if the team decides | Brik |
 | Instructor's feedback on the proposal ([checklist](docs/guidelines.md#instructors-feedback-on-the-proposal)): label error per phase; confidence intervals for R4 and R5; one established action-free method (iterative BCO) | Team |
 | Colour jitter on the IDM (comparison arm in [dann.md](docs/experiments/dann.md)) | Team decision |
 | Augmentation (e): review the settings in [augmentation.md](docs/experiments/augmentation.md) | Gonzalo |
