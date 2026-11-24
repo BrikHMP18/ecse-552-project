@@ -120,5 +120,5 @@ grasp; ACT never sees those 100.
   `tab:objects` lacks "used by" and the splits per method; DANN details are a `\todo`.
 - Slides: restructured on 23 November to this storyline (outline, existing approaches,
   ACT figure with the methods table, data with use and splits, validation design, critique
-  with fixes, questions with links; 15 content slides). Open: `TODO`s for the (c) policies
+  with fixes, questions with links; 16 content slides, one above the target: trim one). Open: `TODO`s for the (c) policies
   and iterative BCO; presenters to confirm.
