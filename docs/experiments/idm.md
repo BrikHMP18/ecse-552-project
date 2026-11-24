@@ -177,6 +177,25 @@ baseline (a) 0.3% on A, 0.0% on D and E, 90.7% on source; oracle (d) 85.7% on A,
 - Seed 0 has the lowest source success in the A and E configs, not on D.
 - Models: `Autobrik/ecse552-act-idm-{A,D,E,E-nofilter}` on Hugging Face.
 
+### R4 and R5 with 95% intervals (23 November 2026)
+
+The instructor asked for confidence intervals on R4 and R5. `scripts/requirement_intervals.py`:
+bootstrap over seeds and then rollouts, 10,000 replicates per run.
+
+| Target | Method | G_T (R4, at least 0.5) | Interval | Source drop (R5, at most 10) | Interval |
+|---|---|---:|---|---:|---|
+| A | (e) | 1.15 | [1.02, 1.40] | −4.3 | [−18.0, 7.0] |
+| A | (b) | 0.97 | [0.73, 1.25] | −2.0 | [−15.3, 9.0] |
+| D | (e) | 0.72 | [0.62, 0.82] | −4.3 | [−18.0, 7.0] |
+| D | (b) | 0.90 | [0.79, 1.04] | −2.7 | [−15.7, 7.7] |
+| E | (e) | 0.00 | [0.00, 0.02] | −4.3 | [−17.7, 7.0] |
+| E | (b) | 1.07 | [0.98, 1.17] | 19.7 | [−3.7, 46.3] |
+
+- R4 holds for (b) on A, D and E with the whole interval above 0.5.
+- R5 holds for (b) on A and D and for (e) with the whole interval below 10. On E the drop of
+  (b) is 19.7 points, but its interval spans −3.7 to 46.3: one seed of three decides it.
+- The source intervals are wide because the baseline itself varies (90.7 ± 12.1%).
+
 ### Check: E in blue (object F, 20 November 2026)
 
 Question: would a target with E's turned grasp and A's colour leave room for DANN? 200 demos
