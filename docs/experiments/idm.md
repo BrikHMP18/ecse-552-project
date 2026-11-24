@@ -196,6 +196,39 @@ bootstrap over seeds and then rollouts, 10,000 replicates per run.
   (b) is 19.7 points, but its interval spans −3.7 to 46.3: one seed of three decides it.
 - The source intervals are wide because the baseline itself varies (90.7 ± 12.1%).
 
+### Label error per phase (23 November 2026)
+
+The instructor asked where the pseudo-labels fail within an episode.
+`scripts/label_error_by_phase.py` splits each target episode by its true gripper targets and
+object height (evaluation only, R1): approach until the gripper is commanded to close, grasp
+until the object is 1 cm up, carry until the gripper is commanded to open, then release.
+MAE of wrist3 (rad) and gripper; (b) is the mean of the three `idm_turned` seeds, DANN is
+`idm_dann_<target>` seed 0 ([dann.md](dann.md)).
+
+| Target | Phase | Steps | (b) wrist3 | (b) gripper | DANN wrist3 | DANN gripper |
+|---|---|---:|---:|---:|---:|---:|
+| A | approach | 27% | 0.020 | 0.005 | 0.187 | 0.011 |
+| A | grasp | 12% | 0.025 | 0.038 | 1.706 | 0.085 |
+| A | carry | 38% | 0.016 | 0.019 | 0.510 | 0.023 |
+| A | release | 24% | 0.123 | 0.014 | 0.316 | 0.016 |
+| D | approach | 29% | 0.020 | 0.005 | 0.202 | 0.054 |
+| D | grasp | 13% | 0.023 | 0.079 | 0.539 | 0.207 |
+| D | carry | 41% | 0.035 | 0.119 | 1.008 | 0.145 |
+| D | release | 17% | 0.028 | 0.011 | 0.861 | 0.133 |
+| E | approach | 27% | 0.018 | 0.005 | 0.573 | 0.013 |
+| E | grasp | 11% | 0.363 | 0.053 | 1.446 | 0.053 |
+| E | carry | 37% | 0.211 | 0.016 | 1.041 | 0.026 |
+| E | release | 25% | 0.606 | 0.014 | 1.429 | 0.021 |
+
+- (b) labels the approach almost exactly (wrist3 0.02 rad, gripper 0.005 on every target);
+  the other arm joints stay within 0.013 rad in every phase.
+- Its gripper error is in grasp and carry, largest on D (0.08 and 0.12; seed 0 reaches
+  0.23 in carry): D's block is 7 cm wide, so the closed gripper differs from the source.
+- Its wrist error is in grasp, carry and release on E (the turned wrist, full turns) and in
+  release on A.
+- DANN raises the wrist error in every phase, the approach included, and on D the gripper
+  error too.
+
 ### Check: E in blue (object F, 20 November 2026)
 
 Question: would a target with E's turned grasp and A's colour leave room for DANN? 200 demos

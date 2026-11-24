@@ -110,7 +110,7 @@ grasp; ACT never sees those 100.
 | At 50 Hz frames barely differ: frames further apart or action chunks | Control at 10 Hz (0.1 s between frames) and the IDM is accurate; say so in the report |
 | Grasp width (B, C): DANN may erase the cues for the gripper | B and C give no oracle gap; on D, DANN breaks the wrist labels more than the gripper ([dann.md](experiments/dann.md)); discuss |
 | Errors per action component | Done (report `tab:idm`) |
-| Errors per phase (approach, grasp, lift) | **Missing**: local analysis, no training |
+| Errors per phase (approach, grasp, lift) | Done: `scripts/label_error_by_phase.py`, [idm.md](experiments/idm.md); add to the report |
 | Run one established action-free method (latent action pretraining, iterative BCO) | **Missing**: (b) is non-iterative BCO; iterative BCO on top of (b) is the cheapest addition (needs a team decision and Modal runs) |
 | Confidence intervals for R4 and R5 | Done for (b) and (e): `scripts/requirement_intervals.py`, [idm.md](experiments/idm.md); add to the report |
 

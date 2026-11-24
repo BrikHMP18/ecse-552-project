@@ -80,8 +80,8 @@ whose labels move an arm joint more than 2 rad in one step (the label filter of 
 - The control is the worst, which points to the mixed batches (batch norm statistics of
   source and target together) as what breaks the target labels; the adversarial term
   recovers part of it (0.607 to 0.220), not up to (b).
-- The error is on the wrist, full turns as in [idm.md](idm.md); the other arm joints stay
-  within 0.06 rad.
+- The error is on the wrist, full turns as in [idm.md](idm.md), in every phase of the
+  episode (idm.md, label error per phase); the other arm joints stay within 0.06 rad.
 - The discriminator's loss stays at ln 2 in most epochs while TSR and TTR swing between 0
   and 1 (A ends at 0.90 and 0.87): the adversarial game does not settle.
 
