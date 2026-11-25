@@ -14,7 +14,7 @@ import numpy as np
 
 RUNS = Path("outputs")
 BASELINE = "act_deterministic"
-METHODS = {"(e)": lambda t: "act_augment", "(b)": "act_idm_{}".format}
+METHODS = {"(e)": lambda t: "act_augment", "(b)": "act_idm_{}".format, "(h)": "lapa_{}".format}
 TARGETS = ("A", "D", "E")
 REPLICATES = 10_000
 

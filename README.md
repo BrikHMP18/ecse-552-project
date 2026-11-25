@@ -35,6 +35,9 @@ Done with 3 seeds: baseline (a), augmentation (e), oracle (d) and the unadapted 
    control without the reversed gradient is worse still, so training with target images in
    the batches is the main cause. Its policies (seed 0) reach 6%, 0% and 0% on A, D and E,
    the level of (a), and fail at the grasp ([dann.md](docs/experiments/dann.md)).
+10. **LAPA (h) is implemented but not run.** The [protocol and
+    code](docs/experiments/lapa.md) are in place, but nothing has run on Modal and no
+    result exists: none of the findings above covers it.
 
 Next: the instructor's feedback ([Next steps](#next-steps)).
 Details: [baselines.md](docs/experiments/baselines.md),
@@ -87,6 +90,7 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (b) IDM | Done, 3 seeds on A, D, E (and E without the label filter) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
 | (c) DANN | Seed 0: labels worse than (b), policies 6%, 0%, 0% on A, D, E; seeds 1 and 2 not run | [dann.md](docs/experiments/dann.md), `configs/idm_dann_{A,D,E}.toml`, `configs/act_dann_{A,D,E}.toml` |
 | (g) Iterative BCO on D | Protocol and code, no run | [bco.md](docs/experiments/bco.md), `configs/{idm,act}_bco_D_r{1,2}.toml` |
+| (h) LAPA | Protocol and code, no run | [lapa.md](docs/experiments/lapa.md), `configs/lam.toml`, `configs/lapa_{A,D,E}.toml` |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 (`third_party/act`, unmodified), images only, 300 source demos.
@@ -242,6 +246,7 @@ episodes whose labels jump).
 | Colour jitter on the IDM (comparison arm in [dann.md](docs/experiments/dann.md)) | Team decision |
 | Augmentation (e): review the settings in [augmentation.md](docs/experiments/augmentation.md) | Gonzalo |
 | Report and slides: follow [guidelines.md](docs/guidelines.md); red `\todo{}` for (c), contributions, conclusion; who presents what | Team |
+| LAPA (h): protocol and code ready ([lapa.md](docs/experiments/lapa.md)); approve the budget and launch on Modal | Team |
 
 ## Collaborating
 
@@ -254,9 +259,9 @@ episodes whose labels jump).
 ## Layout
 
 ```
-src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm (stub)
-scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, select, evaluate, diagnose, play_policy, render, make_report_figures
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_{A,D,E,E_nofilter}.toml (b), act_only_C.toml (diagnosis), act_source_turned.toml (control), references
+src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm, bco, lapa
+scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, modal_train_idm, modal_train_lapa, train_idm, train_lapa, evaluate_idm, evaluate_decoder, select, evaluate, diagnose, play_policy, render, make_report_figures
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_{A,D,E,E_nofilter}.toml (b), act_only_C.toml (diagnosis), act_source_turned.toml (control), lam.toml and lapa_{A,D,E}.toml (h), references
 third_party/       ocbench (fork), act (original)
 docs/              proposal, report, presentation, experiments, research
 ```

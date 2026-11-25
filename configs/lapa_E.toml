@@ -1,0 +1,24 @@
+# Method (h): lapa_E.toml (docs/experiments/lapa.md). As lapa_A.toml, for target E.
+collections = ["data/source-deterministic-n300-seed0"]
+targets = ["data/E-deterministic-n200-seed500000"]
+turned = ["data/source-turned-n100-seed600000"]  # the decoder only, as idm_turned for (b)
+lam = "lam/seed{seed}/best.pt"  # in the ecse552-lapa-outputs volume
+# The codebook size comes from the LAM checkpoint (configs/lam.toml), never from here.
+
+image_size = 224        # the policy's resolution, as every ACT run
+decoder_image_size = 128  # the action decoder's resolution, as the LAM
+pretrained = true
+num_epochs = 2000
+batch_size = 8
+lr = 1e-5
+weight_decay = 1e-4
+chunk_size = 20
+hidden_dim = 512
+dim_feedforward = 3200
+enc_layers = 4
+dec_layers = 7
+nheads = 8
+decoder_hidden = 512
+action_weight = 1.0     # weight of the decoder's action loss
+split_seed = 1          # random 80/20 by episode over source + target, as ACT's split
+seed = 0

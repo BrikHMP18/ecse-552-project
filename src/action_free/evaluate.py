@@ -62,7 +62,12 @@ class EvalConfig:
 
 
 def load_policy(path: str, device: torch.device):
-    """A trained original-ACT checkpoint (`*.ckpt` next to act_run.json, dataset_stats.pkl)."""
+    """A trained policy checkpoint: original ACT (`*.ckpt` next to act_run.json,
+    dataset_stats.pkl) or LAPA (`*.ckpt` next to lapa_run.json)."""
+    if (Path(path).parent / "lapa_run.json").exists():
+        from action_free.lapa import LapaPolicy
+
+        return LapaPolicy(Path(path), device)
     from action_free.act_original import ActPolicy
 
     return ActPolicy(Path(path), device)
