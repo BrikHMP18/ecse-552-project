@@ -479,11 +479,11 @@
   \raggedright\small
   \begin{itemize}
     \item One seed (0); rule fixed before measuring: 5\% below (b)'s best seed.
-    \item DANN: 3--4$\times$ (b)'s error on A, D, E, mostly the wrist, in every phase.
-    \item Control ($\lambda = 0$) worst: 0.607 on D. Hypothesis: mixed source + target
-      batches.
-    \item So no seeds 1, 2 and no policy (c). Open: wrist error wrapped to one turn;
-      batch-norm statistics from source only.
+    \item DANN: 3--4$\times$ (b)'s error on A, D, E, mostly the wrist, in every phase: a
+      constant offset ($-0.7$~rad on D), not full turns, so the filter keeps it.
+    \item Control ($\lambda = 0$) worst: 0.607 on D. Target images in the batches change
+      the weights, not the batch-norm statistics.
+    \item So no seeds 1, 2 and no policy (c).
   \end{itemize}
   \src{Label error against the true actions, for evaluation only (R1).}
 \end{frame}

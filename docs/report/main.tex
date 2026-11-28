@@ -953,24 +953,31 @@ for evaluation only (R1).
 0.114 against 0.030 on A, 0.220 against 0.065 on D and 0.198 against 0.065 on E. The label
 filter drops 29, 145 and 28 videos instead of 5, 3 and 21. The error is mostly in the last
 wrist joint (0.52 to 1.05~rad against 0.03 to 0.28), in every phase of the episode, the
-approach included; the other arm joints stay within 0.06~rad. Its source error rises as
+approach included; the other arm joints stay within 0.06~rad. It is a constant offset,
+not full turns: the wrist label is shifted the same way in nearly every episode
+($-0.49 \pm 0.22$~rad per episode on A, $-0.69 \pm 0.09$ on D, $+1.00 \pm 0.60$ on E,
+against at most $+0.17$ for (b)), and at most 4\% of the steps off by more than 0.5~rad are
+a full turn away. The 2~rad filter drops jumps, not an offset, so most of these labels
+would reach the policy. Its source error rises as
 well (0.028 to 0.030 against 0.020). By the rule, DANN gets no further seeds and no policy:
 (c) is reported by its label error only.
 
-\emph{Mixed batches are the likely cause.} The control without the reversed gradient is
-the worst IDM: sMAE 0.607 on D, with 198 of its 200 videos dropped. Like DANN, and unlike
-(b), it passes source and target pairs through the encoder in the same batches, so batch
-normalization sees both domains. The adversarial term recovers part of the error (0.607 to
-0.220), not down to (b). This points to the mixed batches as the main cause; it is a
-hypothesis from one seed, not a tested explanation.
+\emph{Target images in the batches change the weights.} The control without the reversed
+gradient is the worst IDM: sMAE 0.607 on D, with 198 of its 200 videos dropped and a wrist
+offset of $-2.67$~rad. Like DANN, and unlike (b), it passes source and target pairs through
+the encoder in the same batches; that is its only difference from (b), which trains on the
+same 400 source demonstrations. The adversarial term recovers part of the error (0.607 to
+0.220), not down to (b). Batch normalization is not the cause: with its running statistics
+re-estimated on source, mixed or target pairs, weights unchanged, the wrist error of DANN
+stays at 0.41 to 0.85~rad on A and D and 1.01 to 1.05 on E, against 0.03 to 0.05 and 0.28
+to 0.37 for (b). Training with target images in the batch changed the weights. The last
+wrist joint likely takes the damage because it has the largest spread of the arm joints
+(std 0.40 to 0.59~rad against at most 0.31) and the faintest cue in the image, the gripper
+turning about its own axis. These checks use seed 0 only.
 
 \emph{The adversarial game does not settle.} The discriminator's loss stays near chance
 ($\ln 2$) in most epochs while its accuracy on source and target validation pairs swings
 between 0 and 1 (Figure~\ref{fig:danncurves}).
-
-Two checks are open: the wrist error wrapped to one turn, which would tell a full-turn
-ambiguity from a shifted angle, and the control with its batch-normalization statistics
-recomputed on source images only, which would test the mixed-batch hypothesis.
 
 \subsection{Comparison with alternatives}
 Table~\ref{tab:main} holds the comparison on the C4 constraints (C9, C10), and
@@ -1196,8 +1203,9 @@ before measuring, we stopped at one seed and trained no policy (Section~\ref{sec
   does not guarantee that actions remain readable from the aligned features
   \citep{zhao2019invariant}, and it is weaker for regression than for classification
   \citep{nejjar2023daregram}. Here DANN raised mostly the wrist error, in every phase
-  (Section~\ref{sec:dann}). Our DANN result has one training seed, its settings were fixed
-  and not tuned (R1), and the two checks that would explain it are open.
+  (Section~\ref{sec:dann}), as a constant offset. Our DANN result has one training seed,
+  its settings were fixed and not tuned (R1), and its cause, target images in the batches
+  changing the weights, is shown on that seed only.
   \item \textbf{Operations.} The original ACT code cannot resume, so a preempted cloud
   run restarts from zero.
 \end{itemize}
