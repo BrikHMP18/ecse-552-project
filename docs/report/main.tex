@@ -60,7 +60,10 @@
   in labeled source data. Adapting the IDM with DANN, in one training seed, made its
   labels three to four times worse on every target, and its policies (one seed) reach
   6\%, 0\% and 0\%, the level of the source-only policy: in our setting the unadapted IDM
-  is enough.
+  is enough. One round of iterative BCO on the blue block, where the policy's own
+  rollouts on the target fine-tune the IDM, raises its success from 83.7\% to 89.3\%
+  (oracle 92.7\%) and keeps the source (97.0\%); the gain comes mostly from one seed of
+  three, and the second round was not run.
 \end{abstract}
 
 \section{Introduction}
@@ -140,7 +143,8 @@ the unadapted IDM (b) on A, D and E. B and C leave no usable gap for a method th
 target videos (Section~\ref{sec:results}), so (b) is not run on them. DANN (c) adapts the
 IDM to A, D and E; a rule fixed before measuring trains its policies only where its labels
 beat those of (b), which happened on no target. We still trained its policies on one seed,
-a departure from that rule (Section~\ref{sec:dann}).
+a departure from that rule (Section~\ref{sec:dann}). Iterative BCO (g) runs on D only, for
+one of its two planned rounds (Section~\ref{sec:bco}).
 
 \subsection{Constraints}
 % C4.
@@ -152,8 +156,8 @@ call must finish within the 100~ms control period.
 
 \begin{table}[t]
   \caption{Requirements (C4) and their status in this draft. R4 and R5 are filled for
-  the augmentation baseline (e) and the unadapted IDM (b), and for (c) on its single
-  seed (Section~\ref{sec:dann}).}
+  the augmentation baseline (e) and the unadapted IDM (b), for (c) on its single
+  seed (Section~\ref{sec:dann}) and for round 1 of (g) on D (Section~\ref{sec:bco}).}
   \label{tab:requirements}
   \centering
   \small
@@ -162,7 +166,8 @@ call must finish within the 100~ms control period.
     ID & Requirement & Definition & Target & Status \\
     \midrule
     R1 & Supervision & Target data are RGB frames only & Zero target labels &
-      Met by design: target labels come from images; the label filter reads labels only \\
+      Met by design: target labels come from images; the label filter reads labels only;
+      (g) adds its own interaction with D \\
     R2 & Label budget & Labeled source demonstrations, identical for every method &
       100; 300 if the source-only policy is below 80\% in source validation &
       Decided: 300 (100 demonstrations reach 37\% in validation) \\
@@ -170,13 +175,13 @@ call must finish within the 100~ms control period.
       Met: IDM sees images only; policy robot state zeroed \\
     R4 & Target & Success gain over the source-only policy on each target, as a fraction
       of the oracle's gain & $\geq 50\%$ of the gap &
-      (e): Table~\ref{tab:r4}; (b): met on A, D, E; (c), seed 0: not met \\
+      (e): Table~\ref{tab:r4}; (b): met on A, D, E; (c), seed 0: not met; (g): met on D \\
     R5 & Retention & Drop in source success after adding target data & $\leq 10$ points &
       (e): no drop (95.0\%); (b): met on A, D; not on E (71.0\%); (c), seed 0: met on A, D;
-      not on E (63\%) \\
+      not on E (63\%); (g): no drop (97.0\%) \\
     R6 & Real time & Policy inference per call, within one 10~Hz control step (IDM
-      offline) & $< 100$~ms & Met: 10 to 18~ms (95th percentile) in every test run; not
-      recorded for (c) \\
+      offline) & $< 100$~ms & Met: 10 to 18~ms (95th percentile) in every test run, 25 to
+      39~ms for (g) on a T4; not recorded for (c) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -384,6 +389,22 @@ episodes of each target's 200 videos; the other 40 only measure the discriminato
 $\lambda = 0$ (the control of Section~\ref{sec:dann}) the encoder receives no gradient from
 the discriminator, but its batches are still mixed, so it is not the IDM of (b).
 
+\paragraph{Iterative BCO.}
+Method (g) is BCO($\alpha$) \citep{torabi2018bco} on top of (b), which is its round 0: the
+policy acts, its own transitions go back into the IDM, and the IDM relabels the target
+videos. In round $r$, for each seed $s$ separately: (1) policy $\pi_{r-1}$ runs 200
+episodes on target D in simulation (rollout seeds 800,000+, executed as in the test,
+every episode kept); (2) the IDM of round $r-1$ is fine-tuned on the 400 source
+demonstrations plus these rollouts, each step labeled with the action our policy sent,
+made absolute with the robot's joint positions as for the source; (3) the new IDM labels
+the 200 D videos; (4) $\pi_r$ trains from scratch as (b), label filter included, and its
+checkpoint is selected on source validation rollouts. The fine-tuning runs 5 epochs (AdamW,
+learning rate $10^{-4}$, cosine decay) and keeps the epoch with the lowest validation
+sMAE on source demonstrations and rollouts. Every setting, two rounds and $N = 200$
+included, was fixed before any run and not tuned. Letting the policy act on the target is
+a departure from the proposal, agreed by the team before the runs: the IDM still sees
+images only, and the stored actions of the D videos are never read.
+
 \paragraph{Policy.}
 The policy is the original ACT \citep{zhao2023act}, run from the authors' code without
 modification through a thin adapter. ACT is a conditional VAE: a ResNet-18 backbone per
@@ -462,6 +483,8 @@ with the original ACT and adopted its conventions.
       80/10/10 & Upstream ACT's split; success needs rollouts, not held-out demos \\
     R6 & $< 100$~ms per call & $< 0.5$~s per chunk &
       Temporal ensembling queries the policy every step \\
+    Interaction & (g): the policy acts on target D in simulation & Videos only &
+      BCO's own loop; agreed by the team before the runs \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -519,7 +542,8 @@ cube takes every colour, and shifts the image by up to 4 of 224 pixels; one rand
 applied to the three cameras alike (Figure~\ref{fig:augment}). Validation and test images
 are not augmented. \todo{Confirm the augmentation settings (team review pending).}
 Optional method (f) moves the alignment from the IDM to the policy's encoder
-\citep{kato2026udail}.
+\citep{kato2026udail}. Method (g) gives the IDM the target's motions instead of aligning
+its features: its training data grow with the policy's own rollouts on the target.
 
 \begin{figure}[t]
   \centering
@@ -544,6 +568,7 @@ Optional method (f) moves the alignment from the IDM to the policy's encoder
     (d) & Oracle & Demonstrations & True actions \\
     (e) & Source only with augmentation & None & None \\
     (f) & (b) with policy-encoder alignment (optional) & Videos & IDM pseudo-labels \\
+    (g) & Iterative BCO, from (b) & Videos, own rollouts & IDM pseudo-labels \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -555,7 +580,8 @@ Optional method (f) moves the alignment from the IDM to the policy's encoder
 Measured, with three seeds each: the source-only baseline (a) and the augmentation
 baseline (e) on every object, the oracle (d) for every target, and the unadapted IDM (b)
 on A, D and E. The DANN-adapted IDM (c) and its policies have one training seed
-(Section~\ref{sec:dann}). Figure~\ref{fig:results} gives the
+(Section~\ref{sec:dann}). Iterative BCO (g) has its first round on D, three seeds
+(Section~\ref{sec:bco}). Figure~\ref{fig:results} gives the
 overview; the tables give every seed.
 
 \begin{figure}[t]
@@ -565,7 +591,7 @@ overview; the tables give every seed.
   deviation (lines) and each seed (dots), 100 rollouts per seed. The oracle is the one
   trained for that target; (b) is run on A, D and E only. The low dot of the oracle for C
   is its seed 0 (Section~\ref{sec:results}, Oracle C). (c), one seed, is in
-  Section~\ref{sec:dann}.}
+  Section~\ref{sec:dann}; (g) in Section~\ref{sec:bco}.}
   \label{fig:results}
 \end{figure}
 
@@ -1008,15 +1034,58 @@ was not measured. Seeds 1 and 2 are not run.
   \end{tabular}
 \end{table}
 
+\subsection{Iterative BCO (g), round 1}
+\label{sec:bco}
+Table~\ref{tab:bco} gives the first round on D, three seeds, each chain starting from the
+policy and IDM of (b) with the same seed. The rollouts of $\pi_0 = $ (b) succeed in 71.0\%,
+88.5\% and 95.0\% of the 200 episodes and add 22,698, 18,074 and 17,191 transitions,
+$\alpha = 0.75$, 0.59 and 0.57 of the 30,400 source transitions. The fine-tuned IDMs keep
+their last epoch, with validation sMAE 0.019. Each $\pi_1$ was selected on source
+validation rollouts and tested once.
+
+\begin{table}[t]
+  \caption{Iterative BCO (g), round 1 ($\pi_1$) on D: test success over 100 rollouts per
+  seed; 95\% Wilson interval over the 300 pooled rollouts. Rollouts: success of $\pi_0$
+  on D over the 200 episodes that fine-tune the IDM. (b) is round 0, the same chain.}
+  \label{tab:bco}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrrrrr@{}}
+    \toprule
+    & Seed 0 & Seed 1 & Seed 2 & Mean & Std & Wilson 95\% \\
+    \midrule
+    Rollouts of $\pi_0$ on D & 71.0\% & 88.5\% & 95.0\% & 84.8\% & -- & -- \\
+    Selected checkpoint & best, 1688 & last, 1999 & best, 1894 & & & \\
+    $\pi_1$ on D & 95\% & 80\% & 93\% & \textbf{89.3\%} & 8.1 & [85.3, 92.3] \\
+    $\pi_1$ on source & 98\% & 98\% & 95\% & 97.0\% & 1.7 & [94.4, 98.4] \\
+    (b) on D & 75\% & 80\% & 96\% & 83.7\% & 11.0 & [79.1, 87.4] \\
+    (b) on source & 96\% & 94\% & 90\% & 93.3\% & 3.1 & [89.9, 95.6] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+One round raises D from 83.7\% to 89.3\%, 3.4 points below the oracle (92.7\%), and the
+source from 93.3\% to 97.0\%. Per seed the change on D is $+20$, 0 and $-3$ points: the
+gain comes from seed 0, whose $\pi_0$ was the weakest on D and whose rollouts failed most
+often, and the two pooled Wilson intervals overlap. $G_T = 0.96$ (R4), and the source is
+6.3 points above the source-only policy (R5). The policies take 25 to 39~ms per call (95th
+percentile) on the T4 GPU of these rollouts, against 15 to 16~ms on the A10G of the other
+runs; R6 holds on both. The label error of the new IDMs on D, which would show whether the
+gripper error of (b) in grasp and carry fell as expected, is not measured yet, nor are the
+bootstrap intervals of R4 and R5. Round 2 was not run: a policy trained in 3.5~h instead of
+the 1.15~h estimated, and the two rounds would have exceeded our compute budget, so the
+second round is left to future work. The comparison with (b) also mixes two effects: the
+fine-tuned IDM trains longer than that of (b).
+
 \subsection{Comparison with alternatives}
 Table~\ref{tab:main} holds the comparison on the C4 constraints (C9, C10), and
-Table~\ref{tab:r4} the requirement R4 for (e) and (b).
+Table~\ref{tab:r4} the requirement R4 for (e), (b) and (g).
 
 \begin{table}[t]
   \caption{Test success on each target and on the source (mean over three seeds, 100
   rollouts each). (a) and (e) use no target, so their source column is one number; for (b)
   and (d) it is the range over their targets. (b) is not run on B and C; (c) is seed 0
-  only (Section~\ref{sec:dann}).}
+  only (Section~\ref{sec:dann}); (g) is its first round, on D only (Section~\ref{sec:bco}).}
   \label{tab:main}
   \centering
   \small
@@ -1028,28 +1097,30 @@ Table~\ref{tab:r4} the requirement R4 for (e) and (b).
     (e) & Augmentation & \textbf{98.7\%} & \textbf{90.7\%} & \textbf{68.0\%} & 66.7\% & 0.3\% & 95.0\% \\
     (b) & Unadapted IDM & 83.0\% & -- & -- & 83.7\% & \textbf{95.0\%} & 71.0--93.3\% \\
     (c) & DANN-adapted IDM & 6\% & -- & -- & 0\% & 0\% & 63--94\% \\
+    (g) & Iterative BCO, round 1 & -- & -- & -- & 89.3\% & -- & 97.0\% \\
     (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & 89.0\% & 87.0--96.3\% \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \begin{table}[t]
-  \caption{R4 for the augmentation baseline (e) and the unadapted IDM (b): gain over the
+  \caption{R4 for the augmentation baseline (e), the unadapted IDM (b) and round 1 of
+  iterative BCO (g): gain over the
   source-only policy in points, and its fraction $G_T$ of the oracle's gain, from the means
   of Table~\ref{tab:main}. R4 is met when $G_T \geq 0.5$. On B the oracle's gain is within
   the seed spread; on C the oracle is below the baseline, so R4 is inconclusive.}
   \label{tab:r4}
   \centering
   \small
-  \begin{tabular}{@{}lrrrrr@{}}
+  \begin{tabular}{@{}lrrrrrrr@{}}
     \toprule
-    Target & Oracle gain & (e) gain & (e) $G_T$ & (b) gain & (b) $G_T$ \\
+    Target & Oracle gain & (e) gain & (e) $G_T$ & (b) gain & (b) $G_T$ & (g) gain & (g) $G_T$ \\
     \midrule
-    A & 85.4 & 98.4 & 1.15 & 82.7 & 0.97 \\
-    B & 6.0 & 8.4 & 1.40 & -- & -- \\
-    C & $-13.0$ & 9.0 & -- & -- & -- \\
-    D & 92.7 & 66.7 & 0.72 & 83.7 & 0.90 \\
-    E & 89.0 & 0.3 & 0.00 & 95.0 & 1.07 \\
+    A & 85.4 & 98.4 & 1.15 & 82.7 & 0.97 & -- & -- \\
+    B & 6.0 & 8.4 & 1.40 & -- & -- & -- & -- \\
+    C & $-13.0$ & 9.0 & -- & -- & -- & -- & -- \\
+    D & 92.7 & 66.7 & 0.72 & 83.7 & 0.90 & 89.3 & 0.96 \\
+    E & 89.0 & 0.3 & 0.00 & 95.0 & 1.07 & -- & -- \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1064,7 +1135,9 @@ its 24 test runs (R6). The DANN-adapted IDM (c), on its one seed, does not meet 
 ($G_T$ 0.07, 0.00 and 0.00 on A, D and E) and meets R5 on A and D, not on E (63\%)
 (Section~\ref{sec:dann}). Adapting the IDM transferred negatively: its labels are worse
 than those of (b) on every target, and its policies do no better than the source-only
-policy.
+policy. One round of iterative BCO (g) meets R4 and R5 on D ($G_T$ 0.96, source 97.0\%)
+and closes about 6 of the 9 points that (b) left to the oracle, mostly through one seed
+(Section~\ref{sec:bco}).
 
 \subsection{Results on earlier data}
 \label{sec:earlier}
@@ -1134,12 +1207,15 @@ to 41\%, and re-querying more often without averaging is worse.
 R2 is decided (300 demonstrations). R1 holds by design: the IDM trains on source data,
 target videos enter only as images, the label filter reads labels only, and true target
 actions serve only the oracle, the label-error diagnostic and evaluation. R3 and R6 are
-met by every model measured: images only, at most 18~ms per call. The augmentation
+met by every model measured: images only, at most 18~ms per call on the A10G and 39~ms
+for (g) on a T4. The augmentation
 baseline meets R4 on A, B and D, not on E ($G_T = 0.00$), and R5 on the source. The
 unadapted IDM (b) meets R4 on A, D and E ($G_T$ 0.97, 0.90, 1.07) and R5 on A and D; on E
 it does not meet R5 (a drop of 19.7 points, from one seed of three). The DANN-adapted IDM
 (c), one seed, meets R4 on no target and R5 on A and D; on E its source success drops by
-27.7 points.
+27.7 points. Round 1 of iterative BCO (g), run on D only, meets R4 ($G_T = 0.96$) and R5
+(97.0\% on the source); it lets the policy act on the target, a departure from the
+proposal's videos-only setting.
 
 \paragraph{Appearance does not need target videos.}
 The source-only policy fails on everything that is not plain red, and colour jitter on
@@ -1167,7 +1243,10 @@ labels on E are off by 0.79~rad, and with them E is labeled almost as well as th
 The videos then supply what the source data cannot, \emph{when} to turn. The method
 therefore extends a policy to a new object whose motions are already in the labeled
 data, not to a new motion. Appearance barely affects the IDM (Table~\ref{tab:idm}),
-which leaves little for adaptation to correct.
+which leaves little for adaptation to correct. Giving the IDM the target's motions, through
+the policy's own rollouts in iterative BCO, did more than aligning its features: one round
+on D gave 89.3\% against 83.7\% for (b). The gain rests on one seed of three, and we have
+not measured whether the labels improved, so this is an indication, not a result.
 
 \paragraph{Demonstration variability.}
 On the earlier data the same code and budget gave 99\% or 53\% depending on how the
@@ -1239,6 +1318,10 @@ departure from the rule; they reach the level of the source-only policy
   (Section~\ref{sec:dann}), as a constant offset. Our DANN result has one training seed,
   its settings were fixed and not tuned (R1), and its cause, target images in the batches
   changing the weights, is shown on that seed only.
+  \item \textbf{Iterative BCO.} One of its two planned rounds, on D only, stopped by the
+  compute budget. The policy acts on the target in simulation, which the proposal's
+  videos-only setting excludes. The fine-tuned IDM trains longer than that of (b), so part
+  of the gain may come from training alone, and its label error on D is not measured yet.
   \item \textbf{Operations.} The original ACT code cannot resume, so a preempted cloud
   run restarts from zero.
 \end{itemize}
@@ -1277,11 +1360,19 @@ still: training with target images in the batches changes the weights, not the
 batch-normalization statistics, and shifts the wrist labels by a constant offset. (3) On A and D the unadapted IDM left little for alignment to correct,
 and on E the change is in the action, not in the appearance.
 
+\paragraph{Conclusions of iterative BCO.}
+(1) One round on D, with the policy's own rollouts in the IDM's training data, reaches
+89.3\% against 83.7\% for (b) and 92.7\% for the oracle, and keeps the source (97.0\%).
+(2) The gain is $+20$, 0 and $-3$ points per seed, so three seeds do not establish it.
+(3) The second round, the label error and the bootstrap intervals are left to future work.
+
 \paragraph{Conclusion.}
 In our setting, adapting the IDM adds nothing to (b): action-free videos labeled by an
 unadapted IDM recover 0.90 and 1.07 of the oracle's gain on D and E and retain the source
 on A and D, while DANN degrades the labels. Videos are what a change of behaviour needs,
-provided the IDM has seen the motion in labeled source data.
+provided the IDM has seen the motion in labeled source data; letting the policy show the
+IDM the target's motions, one round of iterative BCO, may close part of the remaining gap
+on D.
 
 \section*{Contributions}
 All members collaborated on and reviewed the report.

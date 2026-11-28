@@ -342,6 +342,8 @@
     (b) & Unadapted IDM & IDM, then ACT & + 200 target videos, IDM labels & IDM labels the videos \\
     (c) & DANN-adapted IDM & IDM + discriminator, ACT & + 200 target videos, its labels &
       How the IDM trains \\
+    (g) & Iterative BCO & IDM on own rollouts, ACT & + 200 target videos, new labels &
+      The policy acts on the target \\
     \bottomrule
   \end{tabular}
   \src{Figure: Zhao et al.\ 2023}
@@ -444,6 +446,7 @@
       [0.98, 1.17].
     \item (c), seed 0: 6\%, 0\%, 0\% on A, D, E, the level of (a). Its labels are worse
       than (b)'s on every target.
+    \item (g), round 1 on D: 89.3\%, $G_T$ = 0.96; source 97.0\%.
   \end{itemize}
 \end{frame}
 
@@ -489,6 +492,32 @@
   \src{Label error against the true actions, for evaluation only (R1).}
 \end{frame}
 
+\begin{frame}{One round of iterative BCO closes part of D's gap to the oracle}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrrr@{}}
+    \toprule
+    D, test success & Seed 0 & Seed 1 & Seed 2 & Mean \\
+    \midrule
+    Rollouts of $\pi_0$ = (b) on D & 71\% & 89\% & 95\% & 84.8\% \\
+    (b), round 0 & 75\% & 80\% & 96\% & 83.7\% \\
+    (g), round 1 & 95\% & 80\% & 93\% & \textbf{89.3\%} \\
+    (g) on source & 98\% & 98\% & 95\% & 97.0\% \\
+    (d) Oracle & & & & 92.7\% \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.6em}
+
+  \raggedright
+  \begin{itemize}
+    \item 200 rollouts of the policy on D fine-tune the IDM, which relabels D's videos; ACT
+      retrains. The policy acts on the target: a departure agreed before the runs.
+    \item R4: $G_T$ = 0.96; R5: no drop. The gain is $+20$, 0, $-3$ points per seed.
+    \item Round 2 not run (policies 3$\times$ slower than estimated); label error not
+      measured yet.
+  \end{itemize}
+\end{frame}
+
 % ================================================================ Critique (B8)
 % Presenter (proposed): Brik, slides 17--18.
 \topicsection{Critique}
@@ -501,9 +530,9 @@
         \toprule
         R1, R3 & Met by design \\
         R2 & 300 demos (100 reach 37\%) \\
-        R4 & (e): A, B, D. (b): A, D, E. (c), seed 0: none \\
-        R5 & (e) and (b) on A, D. Not (b) on E: one seed. (c), seed 0: A, D \\
-        R6 & Met: 10--18~ms per call \\
+        R4 & (e): A, B, D. (b): A, D, E. (c), seed 0: none. (g): D \\
+        R5 & (e) and (b) on A, D. Not (b) on E: one seed. (c), seed 0: A, D. (g): D \\
+        R6 & Met: 10--18~ms per call; (g) 25--39~ms on a T4 \\
         \bottomrule
       \end{tabular}
     \end{column}
@@ -534,6 +563,7 @@
         \item IDM-labeled videos recover 0.90 (D) and 1.07 (E) of the oracle's gain.
         \item The IDM must have seen the motion in source data.
         \item DANN made the labels worse; its policies (c) fail as (a).
+        \item One round of iterative BCO: 89.3\% on D, from one seed's gain.
         \item No target labels; ACT unchanged, 15~ms per call.
       \end{enumerate}
     \end{column}
@@ -544,7 +574,7 @@
         \item Simulation, one task \fix{} real or human videos.
         \item Fixed yaw and start \fix{} stock OCBench.
         \item Three seeds \fix{} more seeds.
-        \item IDM sees source motions only \fix{} iterative BCO. \todo{run or future work}
+        \item Iterative BCO: one round, D only \fix{} round 2, more seeds.
         \item DANN aligns whole distributions \fix{} regression-aware alignment.
       \end{itemize}
     \end{column}
@@ -581,6 +611,7 @@
     A & (b) & 0.97 & [0.73, 1.25] & $-2.0$ & [$-15.3$, 9.0] \\
     D & (e) & 0.72 & [0.62, 0.82] & $-4.3$ & [$-18.0$, 7.0] \\
     D & (b) & 0.90 & [0.79, 1.04] & $-2.7$ & [$-15.7$, 7.7] \\
+    D & (g) & 0.96 & not computed & $-6.3$ & not computed \\
     E & (e) & 0.00 & [0.00, 0.02] & $-4.3$ & [$-17.7$, 7.0] \\
     E & (b) & 1.07 & [0.98, 1.17] & 19.7 & [$-3.7$, 46.3] \\
     \bottomrule
