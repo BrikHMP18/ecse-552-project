@@ -10,6 +10,8 @@ Steps (`--step`); paths take `{seed}`, `bco:` (volume `ecse552-bco`) and `out:` 
   episode is kept, with the actions the policy sent and the robot's joint positions.
 - `select`: best or last checkpoint of an ACT run on 100 source validation rollouts.
 - `test`: 100 rollouts of a selected checkpoint on the test seeds, once (refuses to repeat).
+- `publish`: upload volume folders (`--out`, comma-separated `bco:` paths) to the same paths
+  of a public Hugging Face dataset (`--repo`); needs the Modal secret `huggingface-secret`.
 
     modal run scripts/modal_rollouts.py --step fetch --repo Autobrik/ecse552-act-idm-D \
         --prefix n300/seed{seed} --files selected.ckpt,act_run.json,dataset_stats.pkl \
@@ -21,9 +23,11 @@ Steps (`--step`); paths take `{seed}`, `bco:` (volume `ecse552-bco`) and `out:` 
         --policy out:act_bco_D_r1/n300/seed{seed}/selected.ckpt
 
 --smoke runs 2 episodes per step under the volume's `smoke/` folder (test results under
-`smoke_test_<object>/`). No secrets are needed.
+`smoke_test_<object>/`). Only `publish` uses a secret; without one, set
+`ECSE552_MODAL_SECRETS=`.
 """
 
+import os
 from pathlib import Path
 
 import modal
@@ -33,6 +37,9 @@ app = modal.App("ecse552-rollouts")
 bco_volume = modal.Volume.from_name("ecse552-bco", create_if_missing=True)
 act_volume = modal.Volume.from_name("ecse552-outputs", create_if_missing=True)
 VOLUMES = {"/bco": bco_volume, "/outputs": act_volume}
+SECRET_NAMES = os.environ.get("ECSE552_MODAL_SECRETS", "huggingface-secret")
+HF_SECRET = "huggingface-secret"
+HF_SECRETS = [modal.Secret.from_name(HF_SECRET)] if HF_SECRET in SECRET_NAMES.split(",") else []
 # MuJoCo renders through EGL; point glvnd at the NVIDIA driver Modal mounts.
 NVIDIA_EGL = '{"file_format_version": "1.0.0", "ICD": {"library_path": "libEGL_nvidia.so.0"}}'
 
@@ -67,6 +74,7 @@ image = (
             "MUJOCO_GL": "egl",
             "MPLBACKEND": "Agg",
             "PYTHONPATH": "/root/third_party/ocbench",
+            "ECSE552_MODAL_SECRETS": SECRET_NAMES,  # the container attaches the same secrets
         }
     )
     .add_local_dir("third_party/act", "/root/third_party/act", ignore=[".git"])
@@ -93,6 +101,29 @@ def fetch(repo: str, prefix: str, files: list[str], out: str, seed: int, smoke: 
         shutil.copyfile(hf_hub_download(repo, path), dest / f)
     bco_volume.commit()
     return sorted(p.name for p in dest.iterdir())
+
+
+@app.function(image=image, volumes=VOLUMES, timeout=6 * 3600, secrets=HF_SECRETS)
+def publish(repo: str, folders: list[str], seed: int) -> list[str]:
+    """Upload volume folders (`bco:` paths) to the same paths of a public dataset repo."""
+    from huggingface_hub import HfApi
+
+    from action_free.bco import resolve
+
+    api = HfApi()
+    api.create_repo(repo, repo_type="dataset", private=False, exist_ok=True)
+    commits = []
+    for f in folders:
+        path = f.format(seed=seed)
+        info = api.upload_folder(
+            repo_id=repo,
+            repo_type="dataset",
+            folder_path=resolve(path, seed),
+            path_in_repo=path.removeprefix("bco:"),
+            commit_message=f"BCO (g): {path.removeprefix('bco:')}",
+        )
+        commits.append(info.oid)
+    return commits
 
 
 @app.function(image=image, gpu=GPU, memory=16384, cpu=2, volumes=VOLUMES, timeout=6 * 3600)
@@ -161,8 +192,10 @@ def main(
             calls[s] = select.spawn(policy, s, smoke)
         elif step == "test":
             calls[s] = test.spawn(policy, object, s, smoke)
+        elif step == "publish":
+            calls[s] = publish.spawn(repo, out.split(","), s)
         else:
-            raise SystemExit(f"unknown step {step!r}: fetch, collect, select or test")
+            raise SystemExit(f"unknown step {step!r}: fetch, collect, select, test or publish")
         print(f"spawned {step} seed {s} ({calls[s].object_id})")
     for s, call in calls.items():
         print(f"seed {s}: {call.get()}")

@@ -146,4 +146,5 @@ no secret: `ECSE552_MODAL_SECRETS= modal run ... --smoke`.
    3. `modal_train.py --config configs/act_bco_D_r<r>.toml --seeds 0,1,2 --model-repo <own repo>`.
    4. `modal_rollouts.py --step select --policy out:act_bco_D_r<r>/n300/seed{seed}`, then
       `--step test --object D` and `--step test --object source` on `.../selected.ckpt`.
-   5. Publish the round's rollouts and labels to `md373/dataBCO`.
+   5. Publish the round's rollouts and labels to `md373/dataBCO`: `modal_rollouts.py --step
+      publish --repo md373/dataBCO --out bco:rollouts/D-r<r>-seed{seed},bco:labels/D-deterministic-idm_bco_D_r<r>-seed{seed}`.
