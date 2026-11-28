@@ -132,7 +132,7 @@ policy; every method's ACT is identical, 66.5M).
 | source, D config | 93.3% (96 / 94 / 90) | TBD | TBD |
 | source, E config | 71.0% (43 / 88 / 82) | TBD | TBD |
 | Parameters | IDM 12.0M + ACT 66.5M | LAQ 44.8M + g 12.0M + ACT 66.5M | as (b): IDM + ACT |
-| Training time (A10G) | IDM 0.16 h/seed; ACT not recorded (~1.3 h/run, estimate) | TBD | TBD |
+| Training time (A10G) | IDM 0.16 h/seed; ACT not recorded (~1.3 h/run, estimate) | LAQ 2.45 h + g 0.15 h (seed 0); ACT TBD | TBD |
 
 The (b) numbers come from [idm.md](idm.md) (configs `act_idm_{A,D,E}`); the parameter
 counts are computed by the code (ACT 66,549,391; IDM 11,985,863; LAQ 44,837,480, recorded
