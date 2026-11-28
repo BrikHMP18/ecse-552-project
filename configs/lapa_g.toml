@@ -1,0 +1,20 @@
+# Method (h), stage 2: the action decoder g (docs/experiments/lapa.md,
+# notes/plan-lapa.md). g(o_t, z_t) maps a transition's latent action to the absolute
+# target ACT trains on; it is our extension, trained on the labeled source and turned
+# demos only (the role of `idm_turned` in method (b)); the target videos never reach it.
+# z comes from the frozen LAQ of the same seed on adjacent frames, the same pairs the
+# labeler uses. Train configs/laq.toml first; {seed} in the LAQ path is the training seed.
+collections = [
+    "data/source-deterministic-n300-seed0",
+    "data/source-turned-n100-seed600000",
+]
+laq = "laq/seed{seed}/best.pt"  # in the ecse552-lapa-outputs volume
+# The codebook, quant_dim and code_seq_len come from the LAQ checkpoint, never from here.
+
+image_size = 128     # g's observation resolution, as the LAQ
+pretrained = true    # ImageNet ResNet-18
+epochs = 20          # the IDM's recipe (configs/idm_turned.toml)
+batch_size = 64
+lr = 3e-4
+weight_decay = 1e-4
+seed = 0

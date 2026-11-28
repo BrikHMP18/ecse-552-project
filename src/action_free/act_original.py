@@ -35,6 +35,7 @@ import json
 import os
 import pickle
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -342,6 +343,7 @@ def train(
     imitate_episodes.load_data = load_data
     original_plot = imitate_episodes.plot_history
     logged = {"epochs": 0}
+    clock = {"last": time.time()}
 
     def plot_history(train_history, validation_history, num_epochs, out_dir, seed_):
         original_plot(train_history, validation_history, num_epochs, out_dir, seed_)
@@ -352,11 +354,18 @@ def train(
             row = {"epoch": e, **{f"val/{k}": float(v) for k, v in val.items()}}
             if tr:
                 row |= {f"train/{k}": float(np.mean([float(d[k]) for d in tr])) for k in tr[0]}
+            # Wall time of this epoch's training and validation (the IDM/LAQ histories
+            # record the same; older ACT histories predate this key).
+            row["seconds"] = time.time() - clock["last"]
+            clock["last"] = time.time()
             rows.append(row)
         (Path(out_dir) / "history.json").write_text(json.dumps(rows))
         if wandb_run is not None:
             for row in rows[logged["epochs"] :]:
-                wandb_run.log({k: v for k, v in row.items() if k != "epoch"}, step=row["epoch"])
+                wandb_run.log(
+                    {k: v for k, v in row.items() if k != "epoch" and k != "seconds"},
+                    step=row["epoch"],
+                )
             logged["epochs"] = len(rows)
 
     imitate_episodes.plot_history = plot_history

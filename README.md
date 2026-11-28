@@ -35,9 +35,13 @@ Done with 3 seeds: baseline (a), augmentation (e), oracle (d) and the unadapted 
    control without the reversed gradient is worse still, so training with target images in
    the batches is the main cause. Its policies (seed 0) reach 6%, 0% and 0% on A, D and E,
    the level of (a), and fail at the grasp ([dann.md](docs/experiments/dann.md)).
-10. **LAPA (h) is implemented but not run.** The [protocol and
-    code](docs/experiments/lapa.md) are in place, but nothing has run on Modal and no
-    result exists: none of the findings above covers it.
+10. **LAPA (h) is implemented but not run.** The first (h) design (a home-grown VQ latent
+    action model + ACT-like latent policy, 24 November) was not a faithful implementation
+    of the original LAPA; it is replaced (28 November) by the official LAQ code (vendored,
+    scaled down, 8^4 latent actions, NSVQ) plus an action decoder g as our extension, which
+    labels the target videos for the same ACT training as (b)
+    ([lapa.md](docs/experiments/lapa.md), [plan](notes/plan-lapa.md)). Nothing has run on
+    Modal and no result exists: none of the findings above covers it.
 
 Next: the instructor's feedback ([Next steps](#next-steps)).
 Details: [baselines.md](docs/experiments/baselines.md),
@@ -90,19 +94,23 @@ hf download Autobrik/ecse552-ocbench-block --repo-type dataset --local-dir data 
 | (b) IDM | Done, 3 seeds on A, D, E (and E without the label filter) | [idm.md](docs/experiments/idm.md), `configs/act_idm_{A,D,E}.toml` |
 | (c) DANN | Seed 0: labels worse than (b), policies 6%, 0%, 0% on A, D, E; seeds 1 and 2 not run | [dann.md](docs/experiments/dann.md), `configs/idm_dann_{A,D,E}.toml`, `configs/act_dann_{A,D,E}.toml` |
 | (g) Iterative BCO on D | Protocol and code, no run | [bco.md](docs/experiments/bco.md), `configs/{idm,act}_bco_D_r{1,2}.toml` |
-| (h) LAPA | Protocol and code, no run | [lapa.md](docs/experiments/lapa.md), `configs/lam.toml`, `configs/lapa_{A,D,E}.toml` |
+| (h) LAPA labeler | Code and protocol replaced 28 Nov (faithful LAQ + g); results table in [lapa.md](docs/experiments/lapa.md), nothing run | [lapa.md](docs/experiments/lapa.md), `configs/laq.toml`, `configs/lapa_g.toml`, `configs/act_lapa_{A,D,E}.toml` |
 
 Test success, 100 rollouts per object, mean ± std of 3 seeds. Original ACT
 (`third_party/act`, unmodified), images only, 300 source demos.
 
-| Tested on | (a) Baseline | (e) Augmentation | (b) IDM for that target | (d) Oracle for that target |
-|---|---:|---:|---:|---:|
-| source (red cube) | 90.7 ± 12.1% | 95.0 ± 5.0% | 71.0–93.3% (per target) | 87.0–96.3% (per target) |
-| A (blue cube) | 0.3 ± 0.6% | **98.7 ± 1.5%** | 83.0 ± 17.8% | 85.7 ± 14.0% |
-| B (red 9x6x6 block) | 82.3 ± 16.0% | 90.7 ± 10.1% | - | 88.3 ± 5.9% |
-| C (red 9x7x6 block) | 59.0 ± 20.0% | 68.0 ± 16.5% | - | 46.0 ± 37.5% |
-| D (blue 9x7x6 block) | 0% | 66.7 ± 7.6% | 83.7 ± 11.0% | **92.7 ± 4.2%** |
-| E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | **95.0 ± 2.6%** | 89.0 ± 7.2% |
+| Tested on | (a) Baseline | (e) Augmentation | (b) IDM for that target | (h) LAPA labeler | (g) Iterative BCO | (d) Oracle for that target |
+|---|---:|---:|---:|---:|---:|---:|
+| source (red cube) | 90.7 ± 12.1% | 95.0 ± 5.0% | 71.0–93.3% (per target) | TBD | TBD | 87.0–96.3% (per target) |
+| A (blue cube) | 0.3 ± 0.6% | **98.7 ± 1.5%** | 83.0 ± 17.8% | TBD | TBD | 85.7 ± 14.0% |
+| B (red 9x6x6 block) | 82.3 ± 16.0% | 90.7 ± 10.1% | - | - | - | 88.3 ± 5.9% |
+| C (red 9x7x6 block) | 59.0 ± 20.0% | 68.0 ± 16.5% | - | - | - | 46.0 ± 37.5% |
+| D (blue 9x7x6 block) | 0% | 66.7 ± 7.6% | 83.7 ± 11.0% | TBD | TBD | **92.7 ± 4.2%** |
+| E (red 6x9x6 block, turned grasp) | 0% | 0.3 ± 0.6% | **95.0 ± 2.6%** | TBD | TBD | 89.0 ± 7.2% |
+
+- (h) is the LAPA labeler (official LAQ + g), (g) the team's iterative BCO
+  ([bco.md](docs/experiments/bco.md)); both not run yet ([lapa.md](docs/experiments/lapa.md),
+  [bco.md](docs/experiments/bco.md)).
 
 - **Oracle C**: seed 0 was a bad run (3%, confirmed on a second set of rollouts); seeds 1
   and 2 reach 72% and 63% ([baselines.md](docs/experiments/baselines.md)).
@@ -260,9 +268,9 @@ episodes whose labels jump).
 
 ```
 src/action_free/   collect, objects, initial_states, actions, act_original, evaluate, data, replay, idm, bco, lapa
-scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, modal_train_idm, modal_train_lapa, train_idm, train_lapa, evaluate_idm, evaluate_decoder, select, evaluate, diagnose, play_policy, render, make_report_figures
-configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_{A,D,E,E_nofilter}.toml (b), act_only_C.toml (diagnosis), act_source_turned.toml (control), lam.toml and lapa_{A,D,E}.toml (h), references
-third_party/       ocbench (fork), act (original)
+scripts/           collect, replay, view, upload (npz, LeRobot), modal_train, modal_train_idm, modal_train_lapa, train_idm, train_lapa, export_labels, export_lapa_labels, trace_labelers, evaluate_idm, evaluate_decoder, select, evaluate, diagnose, play_policy, render, make_report_figures
+configs/           data.toml (seeds, protocol, dataset revision), act_deterministic.toml (a), act_oracle_{A,B,C,D,E}.toml (d), act_augment.toml (e), act_idm_{A,D,E,E_nofilter}.toml (b), act_only_C.toml (diagnosis), act_source_turned.toml (control), laq.toml, lapa_g.toml and act_lapa_{A,D,E}.toml (h), references
+third_party/       ocbench (fork), act (original), lapa (official LAPA, MIT: the LAQ model code)
 docs/              proposal, report, presentation, experiments, research
 ```
 

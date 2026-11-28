@@ -187,6 +187,11 @@ def prepare(
         for t in targets
         if t["actions"] != "true" and not in_volume(t["actions"])
     ]
+    patterns += [
+        f"{t['exclude_like']}/*"
+        for t in targets
+        if t.get("exclude_like") and not in_volume(t["exclude_like"])
+    ]
     snapshot_download(
         dataset, repo_type="dataset", revision=revision, allow_patterns=patterns, local_dir=local
     )
@@ -212,7 +217,14 @@ def prepare(
             tag += (
                 f"+{t['folder']}-n{t['num_episodes']}-{'true' if labels is None else labels.name}"
             )
-            if t["max_label_step"]:
+            if t.get("exclude_like"):
+                # Matched samples (method h): keep the same episodes the reference run
+                # kept, by its own label filter (docs/experiments/lapa.md).
+                ref = local / t["exclude_like"]
+                if t["max_label_step"]:
+                    target_files = plausible(target_files, ref, t["max_label_step"])
+                tag += f"-like{Path(t['exclude_like']).name}-step{t['max_label_step']}"
+            elif t["max_label_step"]:
                 target_files = plausible(target_files, labels, t["max_label_step"])
                 tag += f"-step{t['max_label_step']}"
             collections.append((target_files, labels))
@@ -358,6 +370,9 @@ def main(
                 "actions": "true"
                 if t.get("actions", "true") == "true"
                 else _hub_path(t["actions"]).format(seed=seed),
+                "exclude_like": _hub_path(t["exclude_like"]).format(seed=seed)
+                if t.get("exclude_like")
+                else None,
                 "max_label_step": t.get("max_label_step"),
             }
             for t in cfg.get("targets", [])

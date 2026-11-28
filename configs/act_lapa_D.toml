@@ -1,0 +1,23 @@
+# Method (h): as act_lapa_A.toml, for target D (docs/experiments/lapa.md).
+
+data_dir = "data/source-deterministic-n300-seed0"
+num_episodes = 300
+exclude_detours = false
+
+num_epochs = 2000
+batch_size = 8
+lr = 1e-5
+kl_weight = 10
+chunk_size = 20
+hidden_dim = 512
+dim_feedforward = 3200
+
+execution = "ensemble:0.01"
+wandb_project = "ecse552"
+
+[[targets]]
+dir = "data/D-deterministic-n200-seed400000"
+num_episodes = 200
+actions = "labels/D-deterministic-lapa-seed{seed}"  # {seed} = training seed
+exclude_like = "labels/D-deterministic-idm_turned-seed{seed}"  # (b)'s kept episodes
+max_label_step = 2.0  # applied to exclude_like: the episodes (b) dropped

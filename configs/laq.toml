@@ -1,0 +1,39 @@
+# Method (h), stage 1: the latent action quantization model (LAQ) of the original LAPA
+# paper, official code vendored at third_party/lapa (docs/experiments/lapa.md,
+# notes/plan-lapa.md). It pretrains on the images of the source demos, the turned demos
+# (as `idm_turned`) and the target videos, read as images only (R1); no action is ever
+# read. One LAQ, shared by the labelers of A, D and E. Trains on the train split of each
+# collection and keeps the epoch with the lowest validation reconstruction loss.
+#
+# Frame pairs: (x_t, x_{t+stride}), stride 6 = 0.6 s at 10 Hz, the paper's fps rule for
+# robot videos. The labels use adjacent frames (H = 1), the paper's labeling procedure
+# (§3.2). Scaled down from the official 256 px / dim 1024 / 8 + 8 layers (cost; the
+# paper's Fig. 5a ablates model scale): the config records the trained parameter count
+# and, with `record_reference`, the official-scale reference count.
+collections = [
+    "data/source-deterministic-n300-seed0",
+    "data/source-turned-n100-seed600000",
+    "data/A-deterministic-n200-seed100000",
+    "data/D-deterministic-n200-seed400000",
+    "data/E-deterministic-n200-seed500000",
+]
+
+image_size = 128   # 3 cameras stacked as 9 channels
+patch_size = 16    # 8x8 patch grid, as the official 256/32
+dim = 512          # official: 1024
+spatial_depth = 4  # official: 8
+temporal_depth = 4 # official: 8
+heads = 8          # official: 16
+dim_head = 64
+codebook = 8       # NSVQ codebook entries
+code_seq_len = 4   # tokens per latent action: 8^4 = 4096 latent actions
+quant_dim = 32
+stride = 6         # H: 0.6 s between x_t and x_{t+H}
+
+# Official training recipe (laq/train_sthv2.py): Adam lr 1e-4, no weight decay, clip 0.5.
+epochs = 20
+batch_size = 64
+lr = 1e-4
+grad_clip = 0.5
+record_reference = true  # count the official-scale config (untrained) into config.json
+seed = 0
