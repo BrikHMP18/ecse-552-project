@@ -184,7 +184,11 @@ def _json(x):
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+    """Git output, or "" without git (Modal images); `train_provenance` still has the commits."""
+    try:
+        return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+    except FileNotFoundError:
+        return ""
 
 
 def compare_to_training(
@@ -279,8 +283,10 @@ def evaluate(cfg: EvalConfig, log=print) -> dict:
         "scene": scene,
         "uses_robot_state": bool(getattr(policy, "uses_robot_state", False)),
         "provenance": {
-            "project_commit": _git("rev-parse", "HEAD"),
-            "project_dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+            "project_commit": (commit := _git("rev-parse", "HEAD")),
+            "project_dirty": (
+                bool(_git("status", "--porcelain", "--untracked-files=no")) if commit else None
+            ),
             "ocbench_commit": _git("-C", "third_party/ocbench", "rev-parse", "HEAD"),
             "env_kwargs": _json(env_kwargs(cfg.object_name, scene)),
             "train_provenance": run.get("provenance"),

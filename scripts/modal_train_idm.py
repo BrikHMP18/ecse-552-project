@@ -99,8 +99,8 @@ def train(cfg: dict, run: str, max_episodes: int | None, smoke: bool = False) ->
 def main(config: str = "configs/idm.toml", seeds: str = "0", smoke: bool = False) -> None:
     cfg = tomllib.loads(Path(config).read_text())
     hub = tomllib.loads(Path("configs/data.toml").read_text())["hub"]
-    collections = cfg["collections"] + [cfg["target"]] * ("target" in cfg)
-    collections += [cfg["label"]["collection"]] * ("label" in cfg)
+    collections = cfg["collections"] + ([cfg["target"]] if "target" in cfg else [])
+    collections += [cfg["label"]["collection"]] if "label" in cfg else []
     collections = [c for c in collections if not c.startswith(VOLUME_PREFIXES)]
     download.remote(collections, hub["dataset"], hub["revision"])
 

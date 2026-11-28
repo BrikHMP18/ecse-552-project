@@ -68,7 +68,15 @@ image = (
         "dm-control==1.0.48",
         "mujoco==3.15.0",
     )
-    .env({"ACT_ROOT": "/root/third_party/act", "MUJOCO_GL": "egl", "MPLBACKEND": "Agg"})
+    # ECSE552_MODAL_SECRETS too, so the container attaches the same secrets as the client.
+    .env(
+        {
+            "ACT_ROOT": "/root/third_party/act",
+            "MUJOCO_GL": "egl",
+            "MPLBACKEND": "Agg",
+            "ECSE552_MODAL_SECRETS": SECRET_NAMES,
+        }
+    )
     # Bake the ImageNet ResNet-18 weights into the image.
     .run_commands(
         'python -c "from torchvision.models import resnet18, ResNet18_Weights; '
