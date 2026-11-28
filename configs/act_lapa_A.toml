@@ -1,5 +1,5 @@
 # Method (h): act_deterministic.toml plus target A's action-free videos labelled by the
-# LAPA labeler (`labels/A-deterministic-lapa-seed{seed}`; docs/experiments/lapa.md); their
+# LAPA labeler (`lapa:labels/A-deterministic-lapa-seed{seed}`; docs/experiments/lapa.md); their
 # stored actions are never read (R1). The kept episodes are the ones method (b) kept:
 # `exclude_like` applies `max_label_step` to the published IDM labels of the same seed, so
 # both labelers train ACT on the same samples.
@@ -22,6 +22,6 @@ wandb_project = "ecse552"
 [[targets]]
 dir = "data/A-deterministic-n200-seed100000"
 num_episodes = 200
-actions = "labels/A-deterministic-lapa-seed{seed}"  # {seed} = training seed
+actions = "lapa:labels/A-deterministic-lapa-seed{seed}"  # {seed} = training seed
 exclude_like = "labels/A-deterministic-idm_turned-seed{seed}"  # (b)'s kept episodes
 max_label_step = 2.0  # applied to exclude_like: the episodes (b) dropped

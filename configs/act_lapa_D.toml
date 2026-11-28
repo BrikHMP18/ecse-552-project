@@ -18,6 +18,6 @@ wandb_project = "ecse552"
 [[targets]]
 dir = "data/D-deterministic-n200-seed400000"
 num_episodes = 200
-actions = "labels/D-deterministic-lapa-seed{seed}"  # {seed} = training seed
+actions = "lapa:labels/D-deterministic-lapa-seed{seed}"  # {seed} = training seed
 exclude_like = "labels/D-deterministic-idm_turned-seed{seed}"  # (b)'s kept episodes
 max_label_step = 2.0  # applied to exclude_like: the episodes (b) dropped

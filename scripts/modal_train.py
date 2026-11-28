@@ -23,7 +23,8 @@ Secrets: `ECSE552_MODAL_SECRETS` lists the Modal secrets to attach (default
 `huggingface-secret,wandb-secret`; empty for none). Without `WANDB_API_KEY` nothing is logged
 to W&B; without a Hugging Face token use `--no-push` (smoke runs never push).
 Labels named `bco:<path>` (iterative BCO, docs/experiments/bco.md) are read from the volume
-`ecse552-bco`, not downloaded.
+`ecse552-bco`, and `lapa:<path>` (LAPA labeler, docs/experiments/lapa.md) from the volume
+`ecse552-lapa-outputs`, not downloaded.
 """
 
 import os
@@ -38,6 +39,7 @@ app = modal.App("ecse552-act")
 data_volume = modal.Volume.from_name("ecse552-data", create_if_missing=True)
 out_volume = modal.Volume.from_name("ecse552-outputs", create_if_missing=True)
 bco_volume = modal.Volume.from_name("ecse552-bco", create_if_missing=True)
+lapa_volume = modal.Volume.from_name("ecse552-lapa-outputs", create_if_missing=True)
 SECRET_NAMES = os.environ.get("ECSE552_MODAL_SECRETS", "huggingface-secret,wandb-secret")
 secrets = [modal.Secret.from_name(n) for n in SECRET_NAMES.split(",") if n]
 PUSH_FILES = (
@@ -152,7 +154,10 @@ def check() -> dict:
 
 
 @app.function(
-    image=image, volumes={"/data": data_volume, "/bco": bco_volume}, timeout=3600, secrets=secrets
+    image=image,
+    volumes={"/data": data_volume, "/bco": bco_volume, "/lapa": lapa_volume},
+    timeout=3600,
+    secrets=secrets,
 )
 def prepare(
     dataset: str,
@@ -174,7 +179,13 @@ def prepare(
     from action_free.data import detour_files, episode_files
 
     def in_volume(actions: str) -> bool:
-        return actions.startswith("bco:")
+        return actions.startswith(("bco:", "lapa:"))
+
+    def labels_path(actions: str) -> Path:
+        """A target's labels folder in the container (`bco:`/`lapa:` volumes, else hub)."""
+        if actions.startswith("lapa:"):
+            return Path("/lapa") / actions.removeprefix("lapa:")
+        return Path(resolve(actions, 0, smoke))
 
     local = Path(f"/data/{dataset.replace('/', '__')}/{revision}")
     meta = ("manifest.json", "provenance.txt", "packages.txt", "initial_states.csv")
@@ -210,7 +221,7 @@ def prepare(
             if t["actions"] == "true":
                 labels = None
             elif in_volume(t["actions"]):
-                labels = Path(resolve(t["actions"], 0, smoke))  # {seed} is already filled in
+                labels = labels_path(t["actions"])  # {seed} is already filled in
             else:
                 labels = local / t["actions"]
             target_files = episode_files(local / t["folder"], t["num_episodes"])

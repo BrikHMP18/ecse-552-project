@@ -169,10 +169,13 @@ secrets. Launch only with the team's approval.
 2. `modal run scripts/modal_train_lapa.py --config configs/lapa_g.toml --smoke`, then
    `--seeds 0`.
 3. `modal run scripts/modal_train_lapa.py --label laq/seed0/best.pt,lapa_g/seed0/best.pt`;
-   `modal volume get ecse552-lapa-outputs labels data/labels/`; upload the three folders
-   to the dataset repository as `labels/<name>/` and bump `configs/data.toml` [hub].
-4. `modal run --detach scripts/modal_train.py --config configs/act_lapa_A.toml --seeds 0`,
-   then D and E.
+   `modal volume get ecse552-lapa-outputs labels data/labels/`; the folders then live in the
+   Modal volume `ecse552-lapa-outputs` under `labels/<name>/` and the ACT stage reads them
+   from there (`lapa:` paths in `act_lapa_{A,D,E}.toml`), not from the dataset repository
+   (the runner has no write access to the Autobrik org; a later upload to the dataset repo
+   is optional archival, byte-identical, and would not change results).
+4. `modal run --detach scripts/modal_train.py --config configs/act_lapa_A.toml --seeds 0
+   --model-repo <runner>/ecse552-act-lapa-A`, then D and E.
 5. `scripts/select_checkpoint.py outputs/act_lapa_A/n300/seed0` (source validation
    rollouts); `scripts/evaluate_policy.py .../selected.ckpt --object A` and `--object
    source` (test seeds, once); `scripts/evaluate_decoder.py outputs/lapa_g/seed0/best.pt`.
