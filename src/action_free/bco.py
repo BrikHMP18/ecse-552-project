@@ -7,7 +7,8 @@ success, length) plus `healthy`; its actions are those the policy sent to the ro
 
 Paths in BCO configs name the Modal volumes: `bco:<path>` is `<path>` in the volume
 `ecse552-bco`, under `runs/` (or `smoke/` for smoke runs), and `out:<path>` is in the outputs
-volume of the app that reads it (IDM or ACT). `{seed}` is the training seed.
+volume of the app that reads it (IDM or ACT). The rollout app also mounts the IDM outputs as
+`idm:<path>`. `{seed}` is the training seed.
 """
 
 from __future__ import annotations
@@ -30,12 +31,15 @@ def rollout_seeds(round_: int, n: int | None = None) -> list[int]:
 
 
 def resolve(path: str, seed: int, smoke: bool = False) -> str:
-    """A config path with `{seed}` filled in and `bco:` or `out:` mapped to a mount point."""
+    """A config path with `{seed}` filled in and `bco:`, `out:` or `idm:` mapped to a mount
+    point."""
     path = path.format(seed=seed)
     if path.startswith("bco:"):
         return str(VOLUME_ROOT / ("smoke" if smoke else "runs") / path.removeprefix("bco:"))
     if path.startswith("out:"):
         return "/outputs/" + path.removeprefix("out:")
+    if path.startswith("idm:"):
+        return "/idm/" + path.removeprefix("idm:")
     return path
 
 

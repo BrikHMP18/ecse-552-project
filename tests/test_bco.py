@@ -32,6 +32,7 @@ def test_volume_paths():
     assert (
         resolve("out:idm_bco_D_r1/seed{seed}/best.pt", 1) == "/outputs/idm_bco_D_r1/seed1/best.pt"
     )
+    assert resolve("idm:idm_bco_D_r1/seed{seed}", 0) == "/idm/idm_bco_D_r1/seed0"
     assert (
         resolve("data/D-deterministic-n200-seed400000", 0) == "data/D-deterministic-n200-seed400000"
     )

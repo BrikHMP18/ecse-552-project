@@ -1,17 +1,20 @@
 """Policy rollouts on Modal for iterative BCO (g, docs/experiments/bco.md): one T4 container
 per training seed.
 
-Steps (`--step`); paths take `{seed}`, `bco:` (volume `ecse552-bco`) and `out:` (volume
-`ecse552-outputs`, where `modal_train.py` writes the policies):
+Steps (`--step`); paths take `{seed}`, `bco:` (volume `ecse552-bco`), `out:` (volume
+`ecse552-outputs`, where `modal_train.py` writes the policies) and `idm:` (volume
+`ecse552-idm-outputs`, where `modal_train_idm.py` writes the IDMs):
 
-- `fetch`: copy files of a public Hugging Face model repo into the volume, e.g. the (b)
-  policies, round 0. No token is needed.
+- `fetch`: copy files (`--files`; without it, the whole `--prefix` folder) of a public
+  Hugging Face repo (`--repo-type model` or `dataset`) into a volume, e.g. the (b) policies,
+  round 0. No token is needed.
 - `collect`: N rollouts of a policy on the target from the round's seeds (800,000+); every
   episode is kept, with the actions the policy sent and the robot's joint positions.
 - `select`: best or last checkpoint of an ACT run on 100 source validation rollouts.
 - `test`: 100 rollouts of a selected checkpoint on the test seeds, once (refuses to repeat).
-- `publish`: upload volume folders (`--out`, comma-separated `bco:` paths) to the same paths
-  of a public Hugging Face dataset (`--repo`); needs the Modal secret `huggingface-secret`.
+- `publish`: upload volume folders (`--out`, comma-separated) to a public Hugging Face
+  dataset (`--repo`): `bco:<p>` to `<p>`, `out:<p>` to `out/<p>`, `idm:<p>` to `idm/<p>`,
+  only the `--files` patterns if given; needs the Modal secret `huggingface-secret`.
 
     modal run scripts/modal_rollouts.py --step fetch --repo Autobrik/ecse552-act-idm-D \
         --prefix n300/seed{seed} --files selected.ckpt,act_run.json,dataset_stats.pkl \
@@ -36,7 +39,8 @@ GPU = "T4"  # rollouts are simulator-bound; bco.md: T4, training stays on A10G
 app = modal.App("ecse552-rollouts")
 bco_volume = modal.Volume.from_name("ecse552-bco", create_if_missing=True)
 act_volume = modal.Volume.from_name("ecse552-outputs", create_if_missing=True)
-VOLUMES = {"/bco": bco_volume, "/outputs": act_volume}
+idm_volume = modal.Volume.from_name("ecse552-idm-outputs", create_if_missing=True)
+VOLUMES = {"/bco": bco_volume, "/outputs": act_volume, "/idm": idm_volume}
 SECRET_NAMES = os.environ.get("ECSE552_MODAL_SECRETS", "huggingface-secret")
 HF_SECRET = "huggingface-secret"
 HF_SECRETS = [modal.Secret.from_name(HF_SECRET)] if HF_SECRET in SECRET_NAMES.split(",") else []
@@ -86,26 +90,38 @@ image = (
 
 
 @app.function(image=image, volumes=VOLUMES, timeout=3600)
-def fetch(repo: str, prefix: str, files: list[str], out: str, seed: int, smoke: bool) -> list[str]:
-    """Copy `prefix/<file>` of a public model repo into the volume folder `out`."""
+def fetch(
+    repo: str, prefix: str, files: list[str], out: str, seed: int, smoke: bool, repo_type: str
+) -> list[str]:
+    """Copy `prefix/<file>` (every file of `prefix/` if no file is named) of a public Hugging
+    Face repo into the volume folder `out`."""
     import shutil
 
-    from huggingface_hub import hf_hub_download
+    from huggingface_hub import hf_hub_download, snapshot_download
 
     from action_free.bco import resolve
 
+    prefix = prefix.format(seed=seed)
     dest = Path(resolve(out, seed, smoke))
     dest.mkdir(parents=True, exist_ok=True)
-    for f in files:
-        path = f"{prefix.format(seed=seed)}/{f}" if prefix else f
-        shutil.copyfile(hf_hub_download(repo, path), dest / f)
-    bco_volume.commit()
-    return sorted(p.name for p in dest.iterdir())
+    files = [f for f in files if f]
+    if files:
+        for f in files:
+            path = f"{prefix}/{f}" if prefix else f
+            shutil.copyfile(hf_hub_download(repo, path, repo_type=repo_type), dest / f)
+    else:
+        local = snapshot_download(repo, repo_type=repo_type, allow_patterns=f"{prefix}/*")
+        shutil.copytree(Path(local) / prefix, dest, dirs_exist_ok=True)
+    for v in (bco_volume, act_volume, idm_volume):
+        v.commit()
+    names = sorted(p.name for p in dest.iterdir())
+    return names if len(names) <= 5 else [*names[:3], f"... {len(names)} files"]
 
 
 @app.function(image=image, volumes=VOLUMES, timeout=6 * 3600, secrets=HF_SECRETS)
-def publish(repo: str, folders: list[str], seed: int) -> list[str]:
-    """Upload volume folders (`bco:` paths) to the same paths of a public dataset repo."""
+def publish(repo: str, folders: list[str], files: list[str], seed: int) -> list[str]:
+    """Upload volume folders to a public dataset repo: `bco:<p>` to `<p>`, `out:<p>` to
+    `out/<p>`, `idm:<p>` to `idm/<p>`; only the `files` patterns if any are given."""
     from huggingface_hub import HfApi
 
     from action_free.bco import resolve
@@ -115,12 +131,14 @@ def publish(repo: str, folders: list[str], seed: int) -> list[str]:
     commits = []
     for f in folders:
         path = f.format(seed=seed)
+        in_repo = path.removeprefix("bco:").replace(":", "/", 1)
         info = api.upload_folder(
             repo_id=repo,
             repo_type="dataset",
             folder_path=resolve(path, seed),
-            path_in_repo=path.removeprefix("bco:"),
-            commit_message=f"BCO (g): {path.removeprefix('bco:')}",
+            path_in_repo=in_repo,
+            allow_patterns=[p for p in files if p] or None,
+            commit_message=f"BCO (g): {in_repo}",
         )
         commits.append(info.oid)
     return commits
@@ -180,12 +198,13 @@ def main(
     repo: str = "",
     files: str = "",
     prefix: str = "",
+    repo_type: str = "model",
     smoke: bool = False,
 ) -> None:
     calls = {}
     for s in (int(x) for x in seeds.split(",")):
         if step == "fetch":
-            calls[s] = fetch.spawn(repo, prefix, files.split(","), out, s, smoke)
+            calls[s] = fetch.spawn(repo, prefix, files.split(","), out, s, smoke, repo_type)
         elif step == "collect":
             calls[s] = collect.spawn(policy, object, round, out, s, smoke)
         elif step == "select":
@@ -193,7 +212,7 @@ def main(
         elif step == "test":
             calls[s] = test.spawn(policy, object, s, smoke)
         elif step == "publish":
-            calls[s] = publish.spawn(repo, out.split(","), s)
+            calls[s] = publish.spawn(repo, out.split(","), files.split(","), s)
         else:
             raise SystemExit(f"unknown step {step!r}: fetch, collect, select, test or publish")
         print(f"spawned {step} seed {s} ({calls[s].object_id})")

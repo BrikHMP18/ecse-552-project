@@ -118,6 +118,33 @@ $33.5-37.6, above $30 even without a margin. Hence the fine-tuning above.
 - During the runs, check the Modal spend after every step. Stop after the current step if
   spend plus the remaining estimate exceeds $30.
 
+## Round 1 (27-28 November)
+
+Myriam's Modal workspace; every setting as fixed above.
+
+| Seed | Rollouts: success, transitions | pi_1 selected (validation best / last) | pi_1 on D | pi_1 on source | (b) on D / source |
+|---|---|---|---:|---:|---:|
+| 0 | 71.0%, 22,698 | best, epoch 1688 (95% / 94%) | 95% | 98% | 75% / 96% |
+| 1 | 88.5%, 18,074 | last, epoch 1999 (94% / 96%) | 80% | 98% | 80% / 94% |
+| 2 | 95.0%, 17,191 | best, epoch 1894 (92% / 92%) | 93% | 95% | 96% / 90% |
+| Mean | 84.8%, alpha 0.64 | | **89.3 ± 8.1%** [85.3, 92.3] | **97.0 ± 1.7%** [94.4, 98.4] | 83.7% / 93.3% |
+
+- Test success over 100 rollouts per seed, once; Wilson 95% interval over the 300 rollouts.
+  alpha: rollout transitions over the 30,400 source transitions (0.75, 0.59, 0.57).
+- Against (b) on D, per seed: +20 (seed 0), level (seed 1), −3 points (seed 2); R4 point estimate
+  G_T = 0.96 (oracle 92.7%), R5 holds (no source drop against (a)'s 90.7%). Bootstrap
+  intervals and the label error are not computed yet.
+- IDM: best epoch 5 of 5 for every seed, validation sMAE 0.019 (source demos and rollouts).
+  Policy latency 25 to 39 ms per call (95th percentile, T4).
+- **Cost and budget stop.** A policy took 3.5 h, not 1.15 h: the estimate came from the
+  300-episode baseline, these runs train on 500 episodes. Round 1 cost about $19; round 2
+  at the same speed would bring the total to about $38, above $30, so by the budget rule
+  round 1 stopped here and round 2 moves to another workspace (below). Costs are estimates
+  from run times at the rates above, not the Modal bill.
+- Published in `md373/dataBCO`, revision `a6d1225`: rollouts and labels, pi_1 (selected
+  checkpoint, selection and test results under `out/`), the round 1 IDMs (`idm/`). The
+  policies: `md373/ecse552-act-bco-D-r1`.
+
 ## Data
 
 - **Source collections:** the public dataset pinned in `configs/data.toml`.
@@ -135,8 +162,9 @@ no secret: `ECSE552_MODAL_SECRETS= modal run ... --smoke`.
    - the (b) policies: `modal_rollouts.py --step fetch --repo Autobrik/ecse552-act-idm-D
      --prefix n300/seed{seed} --files selected.ckpt,act_run.json,dataset_stats.pkl
      --out bco:policies/act_idm_D/seed{seed}`
-   - the `idm_turned` checkpoints, into `bco:idm/idm_turned/seed{seed}/best.pt`.
-     **Open:** they are only in Brik's Modal volume, not on Hugging Face.
+   - the `idm_turned` checkpoints: `--step fetch --repo Autobrik/ecse552-idm
+     --prefix idm_turned/seed{seed} --files best.pt,config.json,history.json
+     --out bco:idm/idm_turned/seed{seed}`.
 2. Round r:
    1. `modal_rollouts.py --step collect --round r --policy <pi_{r-1}> --out bco:rollouts/D-r<r>-seed{seed}`.
       pi_0 is `bco:policies/act_idm_D/seed{seed}/selected.ckpt`; pi_1 is
@@ -148,3 +176,21 @@ no secret: `ECSE552_MODAL_SECRETS= modal run ... --smoke`.
       `--step test --object D` and `--step test --object source` on `.../selected.ckpt`.
    5. Publish the round's rollouts and labels to `md373/dataBCO`: `modal_rollouts.py --step
       publish --repo md373/dataBCO --out bco:rollouts/D-r<r>-seed{seed},bco:labels/D-deterministic-idm_bco_D_r<r>-seed{seed}`.
+
+### Round 2 in another Modal workspace
+
+Round 1 ran in Myriam's workspace; round 2 can run in any workspace with the secret
+`huggingface-secret`. Everything round 2 reads is in `md373/dataBCO`: `out/` holds pi_1
+(selected checkpoint, selection and test results), `idm/` the round 1 IDMs. Copy it into
+the workspace's volumes, then run round 2 as above (r = 2, `--model-repo <own repo>`):
+
+```bash
+R="modal run scripts/modal_rollouts.py --step fetch --repo md373/dataBCO --repo-type dataset"
+$R --prefix 'out/act_bco_D_r1/n300/seed{seed}' --out 'out:act_bco_D_r1/n300/seed{seed}'
+$R --prefix 'idm/idm_bco_D_r1/seed{seed}' --out 'idm:idm_bco_D_r1/seed{seed}'
+$R --prefix 'rollouts/D-r1-seed{seed}' --out 'bco:rollouts/D-r1-seed{seed}'
+```
+
+From WSL on a Windows checkout, also export `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf
+GIT_CONFIG_VALUE_0=true`: otherwise git sees every file as changed and `modal_train.py`
+refuses to publish.
