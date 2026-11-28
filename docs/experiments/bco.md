@@ -101,6 +101,12 @@ about **$0.85/h**. The T4 only makes rollouts cheaper; the policy is the same.
 | **Total** | | | **$20.5-24.6** |
 | **With a 20% margin** | | | **$24.6-29.5** |
 
+**From the smoke runs (27 November):** a rollout step takes 48 ms on the T4 (policy 36 ms
+included; 400 steps in 19.1 s), the low end of the range above, so rollouts take about 5.0 h
+($4.2) with container starts. The smoke runs are too short to time IDM and ACT training;
+those rows keep the estimates above. Total $20.1, $24.1 with the margin: below $30, so the
+test of pi_1 is kept.
+
 **Retraining the IDM from scratch instead** (20 epochs on all the data: 1.7 h in round 1,
 2.35 h in round 2) would cost 12.2 h and $18.2 for the IDM alone. The total would be
 $33.5-37.6, above $30 even without a margin. Hence the fine-tuning above.
