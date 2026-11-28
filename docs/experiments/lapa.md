@@ -119,7 +119,9 @@ last on 100 source validation rollouts, seeds 900,000+, ties to best); per seed,
 mean ± std and the 95% Wilson interval over the seeds' rollouts. (b) has 3 seeds; (h) runs
 seed 0 first (seeds 1-2 pending the team). Test seeds are used once per selected
 checkpoint. Training time: the sum of the per-epoch `seconds` of the A10G training loops
-(`history.json` of the IDM/LAQ/g runs; the ACT wrapper records it since this commit), not
+(`history.json` of the IDM/LAQ/g runs); for ACT, the training loop's wall time (`train_seconds`
+in `act_run.json`; the A and D runs predate that key and use the loop's printed elapsed). The
+per-row `seconds` field of the A and D ACT histories is meaningless (a removed bug), not
 container wall-clock. Parameters: the trained models per method (labeler side + the ACT
 policy; every method's ACT is identical, 66.5M).
 
