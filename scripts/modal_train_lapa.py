@@ -133,7 +133,7 @@ def label_targets(laq_ckpt: str, g_ckpt: str, max_episodes: int | None) -> list[
     outs = []
     try:
         for c in LABEL_COLLECTIONS:
-            files = episode_files(Path("/data") / c, max_episodes)
+            files = episode_files(Path("data") / c, max_episodes)
             out = Path("/outputs") / "labels" / f"{c.split('-n')[0]}-lapa-seed{seed}"
             label_collection(laq, decoder, files, laq.config["image_size"], out, device)
             outs.append(str(out))
