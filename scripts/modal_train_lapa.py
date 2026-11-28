@@ -48,6 +48,7 @@ LABEL_COLLECTIONS = (
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
+    .env({"LAQ_ROOT": "/root/third_party/lapa/laq"})
     .uv_pip_install(
         "torch==2.15.0",
         "torchvision==0.29.2",
@@ -63,9 +64,9 @@ image = (
         'python -c "from torchvision.models import resnet18, ResNet18_Weights; '
         'resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)"'
     )
+    # Local dirs last: Modal adds them at container start, not at build time.
     .add_local_dir("third_party/lapa/laq", "/root/third_party/lapa/laq", ignore=[".git"])
     .add_local_dir("src/action_free", "/root/action_free")
-    .env({"LAQ_ROOT": "/root/third_party/lapa/laq"})
 )
 
 
