@@ -58,8 +58,9 @@
   turned block one seed of three loses it. Augmentation covers appearance; action-free
   videos are what a change of behaviour needs, provided the IDM has seen that behaviour
   in labeled source data. Adapting the IDM with DANN, in one training seed, made its
-  labels three to four times worse on every target, so no DANN policy was trained: in our
-  setting the unadapted IDM is enough.
+  labels three to four times worse on every target, and its policies (one seed) reach
+  6\%, 0\% and 0\%, the level of the source-only policy: in our setting the unadapted IDM
+  is enough.
 \end{abstract}
 
 \section{Introduction}
@@ -138,7 +139,8 @@ baseline and the augmentation baseline on every object, the oracle for every tar
 the unadapted IDM (b) on A, D and E. B and C leave no usable gap for a method that uses
 target videos (Section~\ref{sec:results}), so (b) is not run on them. DANN (c) adapts the
 IDM to A, D and E; a rule fixed before measuring trains its policies only where its labels
-beat those of (b), which happened on no target (Section~\ref{sec:dann}).
+beat those of (b), which happened on no target. We still trained its policies on one seed,
+a departure from that rule (Section~\ref{sec:dann}).
 
 \subsection{Constraints}
 % C4.
@@ -150,8 +152,8 @@ call must finish within the 100~ms control period.
 
 \begin{table}[t]
   \caption{Requirements (C4) and their status in this draft. R4 and R5 are filled for
-  the augmentation baseline (e) and the unadapted IDM (b); (c) has no policy
-  (Section~\ref{sec:dann}).}
+  the augmentation baseline (e) and the unadapted IDM (b), and for (c) on its single
+  seed (Section~\ref{sec:dann}).}
   \label{tab:requirements}
   \centering
   \small
@@ -168,11 +170,13 @@ call must finish within the 100~ms control period.
       Met: IDM sees images only; policy robot state zeroed \\
     R4 & Target & Success gain over the source-only policy on each target, as a fraction
       of the oracle's gain & $\geq 50\%$ of the gap &
-      (e): Table~\ref{tab:r4}; (b): met on A, D, E; (c): no policy \\
+      (e): Table~\ref{tab:r4}; (b): met on A, D, E; (c), seed 0: not met \\
     R5 & Retention & Drop in source success after adding target data & $\leq 10$ points &
-      (e): no drop (95.0\%); (b): met on A, D; not on E (71.0\%); (c): no policy \\
+      (e): no drop (95.0\%); (b): met on A, D; not on E (71.0\%); (c), seed 0: met on A, D;
+      not on E (63\%) \\
     R6 & Real time & Policy inference per call, within one 10~Hz control step (IDM
-      offline) & $< 100$~ms & Met: 10 to 18~ms (95th percentile) in every test run \\
+      offline) & $< 100$~ms & Met: 10 to 18~ms (95th percentile) in every test run; not
+      recorded for (c) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -550,8 +554,8 @@ Optional method (f) moves the alignment from the IDM to the policy's encoder
 % C10: quantitative comparison against alternatives on C4.
 Measured, with three seeds each: the source-only baseline (a) and the augmentation
 baseline (e) on every object, the oracle (d) for every target, and the unadapted IDM (b)
-on A, D and E. The DANN-adapted IDM (c), one training seed, is reported by its label
-error only (Section~\ref{sec:dann}). Figure~\ref{fig:results} gives the
+on A, D and E. The DANN-adapted IDM (c) and its policies have one training seed
+(Section~\ref{sec:dann}). Figure~\ref{fig:results} gives the
 overview; the tables give every seed.
 
 \begin{figure}[t]
@@ -560,8 +564,8 @@ overview; the tables give every seed.
   \caption{Test success per object: mean of three seeds (bars and numbers), standard
   deviation (lines) and each seed (dots), 100 rollouts per seed. The oracle is the one
   trained for that target; (b) is run on A, D and E only. The low dot of the oracle for C
-  is its seed 0 (Section~\ref{sec:results}, Oracle C). (c) has no policy
-  (Section~\ref{sec:dann}).}
+  is its seed 0 (Section~\ref{sec:results}, Oracle C). (c), one seed, is in
+  Section~\ref{sec:dann}.}
   \label{fig:results}
 \end{figure}
 
@@ -786,8 +790,7 @@ changing. With augmentation the training loss stays close to the validation loss
   \centering
   \includegraphics[width=\linewidth]{figures/curves.png}
   \caption{ACT's L1 action loss per epoch, three seeds per panel. For (b) the loss on
-  target episodes is measured against the pseudo-labels. (c) has no policy
-  (Section~\ref{sec:dann}).}
+  target episodes is measured against the pseudo-labels. (c), one seed, is not shown.}
   \label{fig:losses}
 \end{figure}
 
@@ -959,8 +962,7 @@ not full turns: the wrist label is shifted the same way in nearly every episode
 against at most $+0.17$ for (b)), and at most 4\% of the steps off by more than 0.5~rad are
 a full turn away. The 2~rad filter drops jumps, not an offset, so most of these labels
 would reach the policy. Its source error rises as
-well (0.028 to 0.030 against 0.020). By the rule, DANN gets no further seeds and no policy:
-(c) is reported by its label error only.
+well (0.028 to 0.030 against 0.020). By the rule, DANN gets no further seeds and no policy.
 
 \emph{Target images in the batches change the weights.} The control without the reversed
 gradient is the worst IDM: sMAE 0.607 on D, with 198 of its 200 videos dropped and a wrist
@@ -979,6 +981,33 @@ turning about its own axis. These checks use seed 0 only.
 ($\ln 2$) in most epochs while its accuracy on source and target validation pairs swings
 between 0 and 1 (Figure~\ref{fig:danncurves}).
 
+\emph{Its policies fail at the grasp.} After this result we still trained the policies (c)
+on seed 0, a departure from the rule, so that (c) also has a success rate. They use the
+recipe of (b), label filter included, which keeps 171, 55 and 172 of the 200 videos of A,
+D and E. Each checkpoint was selected on 100 source validation rollouts and tested once
+(Table~\ref{tab:danpolicy}). On every target (c) is at the level of the source-only
+policy (0.3\%, 0\%, 0\%): the DANN labels add nothing the policy can use. On 50
+validation rollouts per target the object is never lifted in 45 (A), 50 (D) and 50 (E),
+which is consistent with the wrist offset of the labels; the wrist angle in the rollouts
+was not measured. Seeds 1 and 2 are not run.
+
+\begin{table}[t]
+  \caption{Policies (c), seed 0: test success over 100 rollouts, 95\% Wilson interval in
+  brackets, against (b) seed 0.}
+  \label{tab:danpolicy}
+  \centering
+  \small
+  \begin{tabular}{@{}llccc@{}}
+    \toprule
+    Target & Selected & Target success & Source success & (b) seed 0, target / source \\
+    \midrule
+    A & best, epoch 1833 & 6\% [2.8, 12.5] & 94\% [87.5, 97.2] & 63\% / 88\% \\
+    D & last, epoch 1999 & 0\% [0, 3.7] & 84\% [75.6, 89.9] & 75\% / 96\% \\
+    E & best, epoch 1487 & 0\% [0, 3.7] & 63\% [53.2, 71.8] & 98\% / 43\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \subsection{Comparison with alternatives}
 Table~\ref{tab:main} holds the comparison on the C4 constraints (C9, C10), and
 Table~\ref{tab:r4} the requirement R4 for (e) and (b).
@@ -986,8 +1015,8 @@ Table~\ref{tab:r4} the requirement R4 for (e) and (b).
 \begin{table}[t]
   \caption{Test success on each target and on the source (mean over three seeds, 100
   rollouts each). (a) and (e) use no target, so their source column is one number; for (b)
-  and (d) it is the range over their targets. (b) is not run on B and C; (c) has no policy
-  (Section~\ref{sec:dann}).}
+  and (d) it is the range over their targets. (b) is not run on B and C; (c) is seed 0
+  only (Section~\ref{sec:dann}).}
   \label{tab:main}
   \centering
   \small
@@ -998,7 +1027,7 @@ Table~\ref{tab:r4} the requirement R4 for (e) and (b).
     (a) & Source only & 0.3\% & 82.3\% & 59.0\% & 0.0\% & 0.0\% & 90.7\% \\
     (e) & Augmentation & \textbf{98.7\%} & \textbf{90.7\%} & \textbf{68.0\%} & 66.7\% & 0.3\% & 95.0\% \\
     (b) & Unadapted IDM & 83.0\% & -- & -- & 83.7\% & \textbf{95.0\%} & 71.0--93.3\% \\
-    (c) & DANN-adapted IDM & -- & -- & -- & -- & -- & -- \\
+    (c) & DANN-adapted IDM & 6\% & -- & -- & 0\% & 0\% & 63--94\% \\
     (d) & Oracle & 85.7\% & 88.3\% & 46.0\% & \textbf{92.7\%} & 89.0\% & 87.0--96.3\% \\
     \bottomrule
   \end{tabular}
@@ -1031,10 +1060,11 @@ D, 26 points between (e) and the oracle, and on E, 89 points, where (e) gains no
 The unadapted IDM (b) meets R4 on A, D and E: it closes 17 of the 26 points on D and all
 of the gap on E. It meets R5 on A and D, not on E (Section~\ref{sec:idmpolicy}). Its
 policies are the same network as the baseline: 15 to 16~ms per call (95th percentile) in
-its 24 test runs (R6). (c) is not compared on success: by the rule fixed in advance it has
-no policy, because its labels are worse than those of (b) on every target
-(Section~\ref{sec:dann}). Adapting the IDM transferred negatively, at the level of the
-labels.
+its 24 test runs (R6). The DANN-adapted IDM (c), on its one seed, does not meet R4
+($G_T$ 0.07, 0.00 and 0.00 on A, D and E) and meets R5 on A and D, not on E (63\%)
+(Section~\ref{sec:dann}). Adapting the IDM transferred negatively: its labels are worse
+than those of (b) on every target, and its policies do no better than the source-only
+policy.
 
 \subsection{Results on earlier data}
 \label{sec:earlier}
@@ -1107,8 +1137,9 @@ actions serve only the oracle, the label-error diagnostic and evaluation. R3 and
 met by every model measured: images only, at most 18~ms per call. The augmentation
 baseline meets R4 on A, B and D, not on E ($G_T = 0.00$), and R5 on the source. The
 unadapted IDM (b) meets R4 on A, D and E ($G_T$ 0.97, 0.90, 1.07) and R5 on A and D; on E
-it does not meet R5 (a drop of 19.7 points, from one seed of three). R4 and R5 are not
-measured for (c), which has no policy.
+it does not meet R5 (a drop of 19.7 points, from one seed of three). The DANN-adapted IDM
+(c), one seed, meets R4 on no target and R5 on A and D; on E its source success drops by
+27.7 points.
 
 \paragraph{Appearance does not need target videos.}
 The source-only policy fails on everything that is not plain red, and colour jitter on
@@ -1169,7 +1200,9 @@ augmentation solves them (Section~\ref{sec:targetE}). The IDM could not label E 
 confuses wrist angles one full turn apart, which led to the label filter
 (Section~\ref{sec:idm}). DANN made the labels worse on every target, its control without
 the reversed gradient worst of all, and its discriminator never settled; by the rule fixed
-before measuring, we stopped at one seed and trained no policy (Section~\ref{sec:dann}).
+before measuring, we stopped at one seed. We still trained its policies on that seed, a
+departure from the rule; they reach the level of the source-only policy
+(Section~\ref{sec:dann}).
 
 \paragraph{Limitations.}
 \begin{itemize}
@@ -1238,9 +1271,10 @@ seed of three loses the source.
 
 \paragraph{Conclusions of DANN.}
 (1) In one training seed, DANN made the IDM's labels three to four times worse on A, D and
-E, so by the rule fixed in advance (c) has no policy. (2) The control without the reversed
-gradient is worse still, which points to batches that mix source and target images; this
-is not yet tested. (3) On A and D the unadapted IDM left little for alignment to correct,
+E, and its policies, trained on that seed against the rule, reach 6\%, 0\% and 0\%, the
+level of the source-only policy. (2) The control without the reversed gradient is worse
+still: training with target images in the batches changes the weights, not the
+batch-normalization statistics, and shifts the wrist labels by a constant offset. (3) On A and D the unadapted IDM left little for alignment to correct,
 and on E the change is in the action, not in the appearance.
 
 \paragraph{Conclusion.}

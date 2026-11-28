@@ -442,8 +442,8 @@
   \begin{itemize}
     \item (b) meets R4 on A, D, E: $G_T$ = 0.97 [0.73, 1.25], 0.90 [0.79, 1.04], 1.07
       [0.98, 1.17].
-    \item (c): no policy. Its labels are worse than (b)'s on every target, so the rule fixed
-      in advance stops it at the label error.
+    \item (c), seed 0: 6\%, 0\%, 0\% on A, D, E, the level of (a). Its labels are worse
+      than (b)'s on every target.
   \end{itemize}
 \end{frame}
 
@@ -483,7 +483,8 @@
       constant offset ($-0.7$~rad on D), not full turns, so the filter keeps it.
     \item Control ($\lambda = 0$) worst: 0.607 on D. Target images in the batches change
       the weights, not the batch-norm statistics.
-    \item So no seeds 1, 2 and no policy (c).
+    \item The rule stops (c) here; we still trained its policies on seed 0: 6\%, 0\%, 0\%,
+      the object lifted in 5 of 150 validation rollouts.
   \end{itemize}
   \src{Label error against the true actions, for evaluation only (R1).}
 \end{frame}
@@ -500,8 +501,8 @@
         \toprule
         R1, R3 & Met by design \\
         R2 & 300 demos (100 reach 37\%) \\
-        R4 & (e): A, B, D. (b): A, D, E. (c): no policy \\
-        R5 & (e) and (b) on A, D. Not (b) on E: one seed. (c): no policy \\
+        R4 & (e): A, B, D. (b): A, D, E. (c), seed 0: none \\
+        R5 & (e) and (b) on A, D. Not (b) on E: one seed. (c), seed 0: A, D \\
         R6 & Met: 10--18~ms per call \\
         \bottomrule
       \end{tabular}
@@ -532,7 +533,7 @@
         \item Augmentation covers appearance; videos are needed for a new behaviour.
         \item IDM-labeled videos recover 0.90 (D) and 1.07 (E) of the oracle's gain.
         \item The IDM must have seen the motion in source data.
-        \item DANN made the labels worse: no policy (c).
+        \item DANN made the labels worse; its policies (c) fail as (a).
         \item No target labels; ACT unchanged, 15~ms per call.
       \end{enumerate}
     \end{column}
