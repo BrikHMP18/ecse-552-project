@@ -28,7 +28,9 @@ secrets are needed.
     modal volume get ecse552-lapa-outputs labels data/labels/
 """
 
+import json
 import os
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -118,7 +120,9 @@ def train(cfg: dict, run: str, max_episodes: int | None) -> dict:
     timeout=4 * 3600,
     volumes={"/root/data": data_volume, "/outputs": out_volume},
 )
-def label_targets(laq_ckpt: str, g_ckpt: str, max_episodes: int | None) -> list[str]:
+def label_targets(
+    laq_ckpt: str, g_ckpt: str, max_episodes: int | None, commit: str, dirty: bool
+) -> list[str]:
     """Pseudo-label A, D and E with the LAQ and g checkpoints (paths in the volume)."""
     import torch
 
@@ -136,6 +140,19 @@ def label_targets(laq_ckpt: str, g_ckpt: str, max_episodes: int | None) -> list[
             files = episode_files(Path("data") / c, max_episodes)
             out = Path("/outputs") / "labels" / f"{c.split('-n')[0]}-lapa-seed{seed}"
             label_collection(laq, decoder, files, laq.config["image_size"], out, device)
+            (out / "labels.json").write_text(
+                json.dumps(
+                    {
+                        "collection": c,
+                        "episodes": len(files),
+                        "laq_checkpoint": laq_ckpt,
+                        "g_checkpoint": g_ckpt,
+                        "commit": commit,
+                        "dirty": dirty,
+                    },
+                    indent=2,
+                )
+            )
             outs.append(str(out))
             print(f"labeled {len(files)} episodes of {c} into {out}")
     finally:
@@ -154,7 +171,17 @@ def main(
         laq_ckpt, g_ckpt = label.split(",")
         if smoke:
             raise SystemExit("--smoke is for the training stages.")
-        print(label_targets.remote(laq_ckpt, g_ckpt, None))
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True
+        ).stdout.strip()
+        dirty = bool(
+            subprocess.run(
+                ["git", "status", "--porcelain", "src/action_free/lapa.py", "scripts"],
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+        print(label_targets.remote(laq_ckpt, g_ckpt, None, commit, dirty))
         return
     cfg = tomllib.loads(Path(config).read_text())
     hub = tomllib.loads(Path("configs/data.toml").read_text())["hub"]
